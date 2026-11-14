@@ -27,11 +27,17 @@ The score is a guide to writing habits, not an AI-detector verdict. Formal and n
 too, and no tool can promise a result with any detector. Edit the rewrite in your own words before you use it, and
 follow your school's or workplace's rules on AI help. The model can still change details, so check numbers and names.
 
-## Install
+## Download and install
 
-Get Writeflow from the FlowApps launcher, or from the Releases page. Step-by-step help, including the first-launch warning (releases are unsigned) and how to check a download against `SHA256SUMS.txt`, is in `docs/INSTALL-WRITEFLOW.md`. The first launch downloads the model that fits
-your computer's memory (3.9 GB to 12.7 GB). The app is not code-signed yet, so macOS and Windows show a warning on
-first launch; see `docs/INSTALL.md`.
+**Easiest:** install and update Writeflow with the [FlowApps launcher](https://github.com/reachneoagent-commits/FlowApps-Launcher/releases/latest), one app that also manages Gramflow, Voxflow, Mailflow and TVflow on Mac and Windows. Or download an installer yourself below.
+
+| Platform | Download |
+|---|---|
+| macOS, Apple silicon (M1 or newer) | [DMG](https://github.com/reachneoagent-commits/writeflow/releases/latest) (`Writeflow-<version>-macos-arm64.dmg`) |
+| Windows x64 | [Installer](https://github.com/reachneoagent-commits/writeflow/releases/latest) (`Writeflow-<version>-windows-x64-setup.exe`) |
+| Windows x64, no install | [Portable zip](https://github.com/reachneoagent-commits/writeflow/releases/latest) (`Writeflow-<version>-windows-x64-portable.zip`) |
+
+Open the latest release and pick the file for your computer. The first launch downloads the model that fits your computer's memory (3.9 GB to 12.7 GB). The app is not code-signed yet, so macOS and Windows show a warning the first time you open it. Step-by-step help for that, and for checking a download against `SHA256SUMS.txt`, is in [docs/INSTALL-WRITEFLOW.md](docs/INSTALL-WRITEFLOW.md).
 
 **Already use the Humanizer app?** In Writeflow's storage settings, point the models folder at the one Humanizer
 uses and Writeflow will find the model without downloading it again. (On Windows, uninstalling Writeflow removes
