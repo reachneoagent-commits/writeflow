@@ -29,7 +29,7 @@ follow your school's or workplace's rules on AI help. The model can still change
 
 ## Install
 
-Get Writeflow from the FlowApps launcher, or from the Releases page. Step-by-step help, including the first-launch warning, is in `docs/INSTALL-WRITEFLOW.md`. The first launch downloads the model that fits
+Get Writeflow from the FlowApps launcher, or from the Releases page. Step-by-step help, including the first-launch warning (releases are unsigned) and how to check a download against `SHA256SUMS.txt`, is in `docs/INSTALL-WRITEFLOW.md`. The first launch downloads the model that fits
 your computer's memory (3.9 GB to 12.7 GB). The app is not code-signed yet, so macOS and Windows show a warning on
 first launch; see `docs/INSTALL.md`.
 

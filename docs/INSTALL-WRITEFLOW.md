@@ -16,6 +16,17 @@ Writeflow isn't code-signed yet, so your computer shows a warning the first time
   On macOS 15 and later, right-click → Open no longer skips the warning, so use System Settings.
 - **Windows:** at "Windows protected your PC", click **More info**, then **Run anyway**.
 
+Because the app is free and open source and isn't signed, only click through these warnings for a file you downloaded from the official Releases page.
+
+## Check your download (optional)
+
+Each release includes `SHA256SUMS.txt`. Download it next to the installer, then compare:
+
+- **Mac:** `shasum -a 256 Writeflow-<version>-macos-arm64.dmg`
+- **Windows (PowerShell):** `Get-FileHash .\Writeflow-<version>-windows-x64-setup.exe -Algorithm SHA256`
+
+The hash printed must match the line for that file in `SHA256SUMS.txt`. If it doesn't, delete the file and download it again. Writeflow also checks this hash itself before installing an update, and refuses an update that has none.
+
 ## The model
 
 On first launch Writeflow picks a model size that fits your memory and downloads it once (3.9 GB to 12.7 GB). After that it works offline.
