@@ -1,7 +1,8 @@
-// Humanizer 网页主控:状态轮询 → 视图切换(首次下载 / 编辑器)→ 改写流式输出 → 差异与历史。
+// Writeflow 网页主控:状态轮询 → 视图切换(首次下载 / 编辑器)→ 改写流式输出 → 差异与历史。
 import { t, apply, setLang, getLang } from './i18n.js';
 import { getJSON, postJSON, countTokens, streamCompletion, streamChat } from './api.js';
 import { bindExternal, openExternal, refreshExternal } from './external.js';
+import { isCloud, cloudMessages } from './wf/cloudcore.js';
 import { buildPrompt, selfCheck, nPredictFor } from './prompt.js';
 import { withLangGuard, langDrift } from './guard.js';
 import { tokenize, diffTokens, markBits, factBits, renderRuns, flagNumbers } from './diff.js';
@@ -640,13 +641,19 @@ async function generate(draft, pd, nPred, signal) {
   // 外部服务:同样的草稿(带占位符)作为唯一一条 user 消息,不带 system;GGUF 自带的模板拼出同一个提示词。
   // 采样参数和自带引擎一样(temperature 1.0、top_p 0.95,其余关掉),和 docs/USAGE.md 第 8 节一致。
   const ext = extOn() ? S.status.external : null;
-  const chatBody = ext && {
+  // Writeflow: a cloud model (OpenAI, Claude, NVIDIA...) is a general chat model, so it gets our rewrite
+  // instructions, and no local-only sampling options (hosted APIs reject top_k, min_p and repeat_penalty).
+  const chatBody = ext && (isCloud(ext.url) ? {
+    ...(ext.model ? { model: ext.model } : {}),
+    messages: cloudMessages(pyStrip(pd.text)),
+    stream: true,
+  } : {
     ...(ext.model ? { model: ext.model } : {}),
     messages: [{ role: 'user', content: pyStrip(pd.text) }],
     ...S.cfg.sampling,
     max_tokens: nPred,
     stream: true,
-  };
+  });
   const open = (sig) => (ext ? streamChat(chatBody, sig) : streamCompletion(body, sig));
   const locked = pd.locks.length > 0;
   S.protect = locked ? pd : null;
@@ -962,7 +969,7 @@ function downloadText() {
   const url = URL.createObjectURL(new Blob([r.out], { type: 'text/plain;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'humanizer-rewrite.txt';
+  link.download = 'writeflow-rewrite.txt';
   document.body.append(link);
   link.click();
   link.remove();
@@ -1187,7 +1194,7 @@ async function importDocument(file) {
   try {
     const body = new FormData();
     body.append('file', file);
-    const response = await fetch('/app/document', { method: 'POST', headers: { 'X-Humanizer': '1' }, body });
+    const response = await fetch('/app/document', { method: 'POST', headers: { 'X-Writeflow': '1' }, body });
     let result = {};
     try { result = await response.json(); } catch { /* 不是 JSON */ }
     if (!response.ok) throw new Error(result.error || 'uploadUnreadable');

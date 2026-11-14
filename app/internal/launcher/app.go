@@ -56,7 +56,7 @@ type App struct {
 	// locModelDir:网页上设过的模型目录,空 = dataDir/models。指针文件 pointerDir 里记着。
 	locModelDir   string
 	pointerDir    string // location.json 放哪儿(被 --data-dir 钉死时为空)
-	dataDirLocked bool   // 运行目录由 --data-dir / HUMANIZER_DATA_DIR 固定,网页上不让改
+	dataDirLocked bool   // 运行目录由 --data-dir / WRITEFLOW_DATA_DIR 固定,网页上不让改
 	sys           SysInfo
 	backends      []Backend
 	web           fs.FS
@@ -117,7 +117,7 @@ func (a *App) setError(kind, code, msg, detail string) {
 	a.phase = phaseError
 	a.errInfo = &errInfo{Kind: kind, Code: code, Message: msg, Detail: detail}
 	a.mu.Unlock()
-	a.logf("错误 [%s/%s] %s", kind, code, msg)
+	a.logf("Error [%s/%s] %s", kind, code, msg)
 }
 
 // boot 决定开机状态:选过的档位已下载 → 直接起引擎;有半截文件 → 暂停态;
@@ -229,7 +229,7 @@ func (a *App) startDownload(t Tier, ep Endpoint) {
 		Dest:      a.modelPath(t),
 		SHA256:    t.SHA256,
 		Logf:      a.logf,
-		UserAgent: "humanizer-app/" + a.opts.Version,
+		UserAgent: "writeflow-app/" + a.opts.Version,
 	}
 	_ = os.MkdirAll(filepath.Dir(d.Dest), 0o755)
 	a.mu.Lock()
@@ -242,7 +242,7 @@ func (a *App) startDownload(t Tier, ep Endpoint) {
 	a.phase = phaseDownloading
 	a.errInfo = nil
 	a.mu.Unlock()
-	a.logf("开始下载 %s ← %s", t.File, d.URL)
+	a.logf("Downloading %s from %s", t.File, d.URL)
 
 	go func() {
 		defer close(done)
@@ -257,7 +257,7 @@ func (a *App) startDownload(t Tier, ep Endpoint) {
 		case err == nil:
 			a.dl = nil
 			a.mu.Unlock()
-			a.logf("下载完成 %s", d.Dest)
+			a.logf("Download finished %s", d.Dest)
 			if a.updates != nil { // 记下指纹,以后检查模型更新不用再算
 				a.updates.recordFP(t.File, d.Dest, d.SHA)
 			}
@@ -268,7 +268,7 @@ func (a *App) startDownload(t Tier, ep Endpoint) {
 				a.phase = phasePaused
 			}
 			a.mu.Unlock()
-			a.logf("下载已暂停,已收到 %d 字节", d.Received.Load())
+			a.logf("Download paused, %d bytes received", d.Received.Load())
 			return
 		default:
 			code := "network"
@@ -279,7 +279,7 @@ func (a *App) startDownload(t Tier, ep Endpoint) {
 			a.phase = phaseError
 			a.errInfo = &errInfo{Kind: "download", Code: code, Message: err.Error()}
 			a.mu.Unlock()
-			a.logf("下载失败:%v", err)
+			a.logf("Download failed: %v", err)
 		}
 	}()
 }
@@ -344,7 +344,7 @@ func (a *App) idleLoop(ctx context.Context) {
 				continue
 			}
 			if time.Since(time.Unix(0, a.lastSeen.Load())) > a.idleExit {
-				a.logf("网页已关闭超过 %s,自动退出", a.idleExit)
+				a.logf("The page has been closed for more than %s; exiting automatically", a.idleExit)
 				a.shutdown()
 				return
 			}

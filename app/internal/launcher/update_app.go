@@ -67,7 +67,7 @@ func (u *updater) restoreAppJob() {
 // packageVerifier:下完后粗查一下文件是不是真的安装包(防网关/门户页把网页塞进来)。
 func packageVerifier(name string) func(string) error {
 	bad := func() error {
-		return &PermanentError{Code: "not_package", Msg: "下载到的不是安装包(可能被网络网关替换成了网页),已删除"}
+		return &PermanentError{Code: "not_package", Msg: "What came down isn't an installer (a network gateway may have swapped in a web page); it was deleted"}
 	}
 	lower := strings.ToLower(name)
 	return func(path string) error {
@@ -117,14 +117,14 @@ func (u *updater) startAppDownload() error {
 	u.mu.Unlock()
 	waitFetchDone(prev)
 	if rel == nil || !newerVersion(rel.Version, u.version) {
-		return &PermanentError{Code: "no_update", Msg: "已经是最新版本"}
+		return &PermanentError{Code: "no_update", Msg: "You're already on the latest version"}
 	}
 	if u.inst.Mode == "none" {
-		return &PermanentError{Code: "unsupported", Msg: "这个平台没有可自动下载的安装包,请到 Releases 页面手动下载"}
+		return &PermanentError{Code: "unsupported", Msg: "This platform has no installer that can be downloaded automatically. Download one from the Releases page"}
 	}
 	asset := pickAsset(rel.Assets, u.inst.Suffix)
 	if asset == nil {
-		return &PermanentError{Code: "no_package", Msg: "这个版本没有本平台的安装包"}
+		return &PermanentError{Code: "no_package", Msg: "This version has no installer for this platform"}
 	}
 	sha := asset.SHA256
 	if sha == "" && rel.SumsURL != "" {
@@ -133,7 +133,7 @@ func (u *updater) startAppDownload() error {
 		}
 	}
 	if sha == "" {
-		u.logf("警告:%s 没有 sha256,只校验大小", asset.Name)
+		u.logf("Warning: %s has no sha256; checking size only", asset.Name)
 	}
 	_ = os.MkdirAll(u.updatesDir(), 0o755)
 	dest := filepath.Join(u.updatesDir(), asset.Name)
@@ -154,7 +154,7 @@ func (u *updater) startAppDownload() error {
 	u.mu.Lock()
 	u.app = job
 	u.mu.Unlock()
-	u.logf("开始下载 App %s ← %s", rel.Version, asset.URL)
+	u.logf("Downloading app %s from %s", rel.Version, asset.URL)
 	go func() {
 		err := d.Run(ctx)
 		close(job.fetchDone)
@@ -166,7 +166,7 @@ func (u *updater) startAppDownload() error {
 		switch {
 		case err == nil:
 			job.State, job.Path = "ready", dest
-			u.logf("App %s 已下好并校验通过:%s", rel.Version, dest)
+			u.logf("App %s downloaded and verified: %s", rel.Version, dest)
 		case errors.Is(err, context.Canceled):
 			if job.State == "downloading" {
 				job.State = "paused"
@@ -179,7 +179,7 @@ func (u *updater) startAppDownload() error {
 			}
 			job.State = "error"
 			job.Err = &errInfo{Kind: "download", Code: code, Message: err.Error()}
-			u.logf("App 更新下载失败:%v", err)
+			u.logf("App update download failed: %v", err)
 		}
 	}()
 	return nil
@@ -223,7 +223,7 @@ func (u *updater) openPackage() error {
 	j := u.app
 	u.mu.Unlock()
 	if j == nil || j.Path == "" || !fileExists(j.Path) {
-		return &PermanentError{Code: "no_package", Msg: "安装包还没下好"}
+		return &PermanentError{Code: "no_package", Msg: "The installer hasn't finished downloading"}
 	}
 	return openPackageFile(j.Path)
 }
@@ -235,13 +235,13 @@ func (u *updater) apply(inflight int) error {
 	j := u.app
 	u.mu.Unlock()
 	if j == nil || j.State != "ready" {
-		return &PermanentError{Code: "not_ready", Msg: "新版本还没下好"}
+		return &PermanentError{Code: "not_ready", Msg: "The new version hasn't finished downloading"}
 	}
 	if u.inst.Mode == "manual" || j.Fallback {
 		return u.openPackage()
 	}
 	if inflight > 0 {
-		return &PermanentError{Code: "busy", Msg: "正在改写,等这次改写结束再更新"}
+		return &PermanentError{Code: "busy", Msg: "A rewrite is running; update after it finishes"}
 	}
 	u.mu.Lock()
 	j.State, j.Err = "preparing", nil
@@ -256,17 +256,17 @@ func (u *updater) apply(inflight int) error {
 				// 系统不让原地替换:改成手动,并直接把安装包打开给用户
 				j.State, j.Fallback = "ready", true
 				j.Err = &errInfo{Kind: "update", Code: "fallback", Message: fe.Error()}
-				u.logf("没法原地替换(%v),改为打开安装包", fe.err)
+				u.logf("Couldn't replace in place (%v); opening the installer instead", fe.err)
 				go func() { _ = openPackageFile(j.Path) }()
 				return
 			}
 			j.State = "ready"
 			j.Err = &errInfo{Kind: "update", Code: "prepare_failed", Message: err.Error()}
-			u.logf("准备更新失败:%v", err)
+			u.logf("Couldn't prepare the update: %v", err)
 			return
 		}
 		j.State = "restarting"
-		u.logf("更新准备好了,重启到 %s", j.Version)
+		u.logf("The update is ready; restarting into %s", j.Version)
 		if u.requestRestart != nil {
 			go u.requestRestart(plan)
 		}
@@ -278,7 +278,7 @@ func (u *updater) apply(inflight int) error {
 type fallbackError struct{ err error }
 
 func (e *fallbackError) Error() string {
-	return "没法自动替换旧版本(" + e.err.Error() + "),已为你打开安装包,按提示手动替换即可"
+	return "Couldn't replace the old version automatically (" + e.err.Error() + "). The installer is open; follow its steps to replace the old version"
 }
 func (e *fallbackError) Unwrap() error { return e.err }
 
@@ -291,11 +291,11 @@ func (u *updater) prepare(j *appJob) (*applyPlan, error) {
 		}
 		if got != j.Asset.SHA256 {
 			_ = os.Remove(j.Path)
-			return nil, fmt.Errorf("安装包校验失败,已删除,请重新下载")
+			return nil, fmt.Errorf("The installer failed its check and was deleted; download it again")
 		}
 	}
 	plan := &applyPlan{From: u.version, To: j.Version, DataDir: u.dataDir}
-	if v, err := strconv.Atoi(os.Getenv("HUMANIZER_UPDATE_READY_SEC")); err == nil && v > 0 { // 测试用:缩短「等新版本起来」的时间
+	if v, err := strconv.Atoi(os.Getenv("WRITEFLOW_UPDATE_READY_SEC")); err == nil && v > 0 { // 测试用:缩短「等新版本起来」的时间
 		plan.ReadySec = v
 	}
 	if err := prepareApply(u.rootCtx, u.inst, j.Path, u.args, plan, u.logf); err != nil {
@@ -329,7 +329,7 @@ type applyPlan struct {
 // swapInPlace:target → backup,staged → target。第二步失败就把第一步撤回。
 func swapInPlace(target, staged, backup string) error {
 	if _, err := os.Stat(staged); err != nil {
-		return fmt.Errorf("新版本不在:%w", err)
+		return fmt.Errorf("The new version is missing: %w", err)
 	}
 	_ = os.RemoveAll(backup)
 	if err := os.Rename(target, backup); err != nil {
@@ -337,7 +337,7 @@ func swapInPlace(target, staged, backup string) error {
 	}
 	if err := os.Rename(staged, target); err != nil {
 		if rerr := os.Rename(backup, target); rerr != nil {
-			return fmt.Errorf("%v;而且没能换回旧版本:%v", err, rerr)
+			return fmt.Errorf("%v; and the old version couldn't be put back: %v", err, rerr)
 		}
 		return err
 	}
@@ -347,13 +347,13 @@ func swapInPlace(target, staged, backup string) error {
 // undoSwap:新版本挪走(删掉),旧版本放回原处。
 func undoSwap(target, backup string) error {
 	if _, err := os.Stat(backup); err != nil {
-		return fmt.Errorf("找不到旧版本备份:%w", err)
+		return fmt.Errorf("Couldn't find the backup of the old version: %w", err)
 	}
 	if _, err := os.Lstat(target); err == nil {
 		failed := target + ".failed"
 		_ = os.RemoveAll(failed)
 		if err := os.Rename(target, failed); err != nil {
-			return fmt.Errorf("挪不开新版本:%w", err)
+			return fmt.Errorf("Couldn't move the new version into place: %w", err)
 		}
 		defer os.RemoveAll(failed)
 	}
@@ -378,7 +378,7 @@ func runApplyPlan(p *applyPlan, h applyHooks) updateResult {
 	res := updateResult{From: p.From, To: p.To}
 	fail := func(format string, args ...any) updateResult {
 		res.OK, res.Error = false, fmt.Sprintf(format, args...)
-		h.logf("更新失败:%s", res.Error)
+		h.logf("Update failed: %s", res.Error)
 		writeResult(p.DataDir, res)
 		return res
 	}
@@ -388,11 +388,11 @@ func runApplyPlan(p *applyPlan, h applyHooks) updateResult {
 	}
 	relaunchOld := func() {
 		if err := h.launch(p.Relaunch, p.Env); err != nil {
-			h.logf("重新启动旧版本失败:%v", err)
+			h.logf("Couldn't restart the old version: %v", err)
 			return
 		}
 		if !h.ready(p.DataDir, p.From, readyTimeout) {
-			h.logf("旧版本也没有在 %s 内起来", readyTimeout)
+			h.logf("The old version didn't come up within %s either", readyTimeout)
 		}
 	}
 	if p.WaitPID > 0 {
@@ -405,50 +405,50 @@ func runApplyPlan(p *applyPlan, h applyHooks) updateResult {
 			if err := swapInPlace(p.Target, p.Staged, p.Backup); err != nil {
 				_ = os.RemoveAll(p.Staged)
 				relaunchOld()
-				return fail("替换文件失败(旧版本没动):%v", err)
+				return fail("Couldn't replace the files (the old version is untouched): %v", err)
 			}
 		case "installer":
 			_ = os.RemoveAll(p.Backup)
 			if err := os.Rename(p.Target, p.Backup); err != nil {
 				relaunchOld()
-				return fail("挪不开旧版本(可能有文件被占用,旧版本没动):%v", err)
+				return fail("Couldn't move the old version aside (a file may be in use; the old version is untouched): %v", err)
 			}
-			h.logf("运行安装包:%s", strings.Join(p.Installer, " "))
+			h.logf("Running the installer: %s", strings.Join(p.Installer, " "))
 			if err := runInstaller(p.Installer, 15*time.Minute); err != nil {
 				if uerr := undoSwap(p.Target, p.Backup); uerr != nil {
-					h.logf("严重:回滚失败:%v", uerr)
+					h.logf("Serious: rollback failed: %v", uerr)
 				}
 				relaunchOld()
-				return fail("安装包没装成功,已换回旧版本:%v", err)
+				return fail("The installer didn't finish; the old version was restored: %v", err)
 			}
 		default:
 			relaunchOld()
-			return fail("未知的更新方式 %q", p.Kind)
+			return fail("Unknown update method %q", p.Kind)
 		}
 	}
 
-	h.logf("启动新版本 %s", p.To)
+	h.logf("Starting new version %s", p.To)
 	if err := h.launch(p.Relaunch, p.Env); err == nil && h.ready(p.DataDir, p.To, readyTimeout) {
 		_ = os.RemoveAll(p.Backup)
 		res.OK = true
 		writeResult(p.DataDir, res)
-		h.logf("已更新到 %s", p.To)
+		h.logf("Updated to %s", p.To)
 		return res
 	} else if err != nil {
-		h.logf("启动新版本失败:%v", err)
+		h.logf("Couldn't start the new version: %v", err)
 	}
 	h.kill(p.DataDir)
 	if err := undoSwap(p.Target, p.Backup); err != nil {
-		h.logf("严重:回滚失败:%v", err)
-		return fail("新版本没能启动,回滚也失败了:%v", err)
+		h.logf("Serious: rollback failed: %v", err)
+		return fail("The new version couldn't start, and the rollback failed too: %v", err)
 	}
 	relaunchOld()
-	return fail("新版本 %s 没能启动,已换回 %s", p.To, p.From)
+	return fail("New version %s couldn't start; restored %s", p.To, p.From)
 }
 
 func runInstaller(argv []string, timeout time.Duration) error {
 	if len(argv) == 0 {
-		return errors.New("没有安装包命令")
+		return errors.New("There is no installer command")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -472,7 +472,7 @@ func runInstaller(argv []string, timeout time.Duration) error {
 // launchDetached 启动 App(不等它结束)。
 func launchDetached(argv, env []string) error {
 	if len(argv) == 0 {
-		return errors.New("没有启动命令")
+		return errors.New("There is no start command")
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Env = append(os.Environ(), env...)
@@ -514,7 +514,7 @@ func pingVersion(c *http.Client, port int) string {
 		App     string `json:"app"`
 		Version string `json:"version"`
 	}
-	if json.NewDecoder(resp.Body).Decode(&p) != nil || p.App != "humanizer" {
+	if json.NewDecoder(resp.Body).Decode(&p) != nil || p.App != "writeflow" {
 		return ""
 	}
 	return p.Version
@@ -556,11 +556,11 @@ func (u *updater) cleanupStale() {
 	if err == nil {
 		for _, e := range ents {
 			name := e.Name()
-			if strings.HasPrefix(name, "humanizer-updater") {
+			if strings.HasPrefix(name, "writeflow-updater") {
 				_ = os.RemoveAll(filepath.Join(u.updatesDir(), name))
 				continue
 			}
-			// Humanizer-0.3.1-macos-arm64.dmg → 0.3.1
+			// Writeflow-0.3.1-macos-arm64.dmg → 0.3.1
 			if v := versionInPackageName(name); v != "" && !newerVersion(v, u.version) {
 				_ = os.RemoveAll(filepath.Join(u.updatesDir(), name))
 			}
@@ -570,7 +570,7 @@ func (u *updater) cleanupStale() {
 		for _, p := range []string{backupPathFor(u.inst), stagedPathFor(u.inst)} {
 			if p != "" {
 				if _, err := os.Stat(p); err == nil {
-					u.logf("清理上次更新留下的 %s", p)
+					u.logf("Cleaning up what the last update left behind: %s", p)
 					_ = os.RemoveAll(p)
 				}
 			}
@@ -579,10 +579,10 @@ func (u *updater) cleanupStale() {
 }
 
 func versionInPackageName(name string) string {
-	if !strings.HasPrefix(name, "Humanizer-") {
+	if !strings.HasPrefix(name, "Writeflow-") {
 		return ""
 	}
-	rest := strings.TrimPrefix(name, "Humanizer-")
+	rest := strings.TrimPrefix(name, "Writeflow-")
 	if i := strings.Index(rest, "-"); i > 0 {
 		if _, ok := parseSemver(rest[:i]); ok {
 			return rest[:i]
@@ -634,11 +634,11 @@ func checkVersionOutput(ctx context.Context, exe, want string) error {
 	prepareCmd(cmd)
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("新版本的程序跑不起来:%v", err)
+		return fmt.Errorf("The new version's program won't run: %v", err)
 	}
 	got := strings.TrimSpace(string(out))
-	if f := strings.Fields(got); len(f) == 2 && f[0] == "humanizer" && f[1] == want {
+	if f := strings.Fields(got); len(f) == 2 && f[0] == "writeflow" && f[1] == want {
 		return nil
 	}
-	return fmt.Errorf("新版本的程序报告的版本是 %q,应为 %s", got, want)
+	return fmt.Errorf("The new version's program reports version %q, expected %s", got, want)
 }

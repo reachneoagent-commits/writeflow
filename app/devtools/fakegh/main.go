@@ -4,7 +4,7 @@
 //	GET /dl/{tag}/{name}                   302 → /blob/{name}(和 GitHub 一样跳到另一个地址)
 //	GET /blob/{name}                       支持 Range,按 -rate 限速
 //
-// -dir 里的 Humanizer-<版本>-*.{dmg,exe,zip} 按版本分组成一个个发布;每次请求都重新扫描目录,
+// -dir 里的 Writeflow-<版本>-*.{dmg,exe,zip} 按版本分组成一个个发布;每次请求都重新扫描目录,
 // 往目录里放新文件就等于「发布了新版本」。-notes 是说明模板({v} 换成版本号),不给就用内置的中英文说明。
 package main
 
@@ -39,7 +39,7 @@ const defaultNotes = "**humanizer** rewrites AI-written drafts so they read like
 	"- **Check for updates.** The **⋯** menu has a new **Check for updates** item. The app looks once a day (you can turn that off) and shows a small hint when a new version or a newer model file is out. Updating keeps your model, settings and history.\n" +
 	"- **Model updates.** When a model file on Hugging Face changes, you can download the new one while you keep rewriting; it is swapped in after it passes its checksum.\n" +
 	"- **Fixed:** a rare case where the size picker showed the wrong download size for `Q3`.\n\n" +
-	"## Download\n\n| Your computer | File |\n|---|---|\n| Mac with Apple silicon (M1 or newer) | `Humanizer-{v}-macos-arm64.dmg` |\n| Windows x64 | `Humanizer-{v}-windows-x64-setup.exe` (installer) or `Humanizer-{v}-windows-x64-portable.zip` |\n\n" +
+	"## Download\n\n| Your computer | File |\n|---|---|\n| Mac with Apple silicon (M1 or newer) | `Writeflow-{v}-macos-arm64.dmg` |\n| Windows x64 | `Writeflow-{v}-windows-x64-setup.exe` (installer) or `Writeflow-{v}-windows-x64-portable.zip` |\n\n" +
 	"Checksums: `SHA256SUMS.txt`.\n\n---\n\n" +
 	"**humanizer** 把 AI 写的草稿改写成读起来像人写的，数字、人名、日期、引语一个不丢。\n\n" +
 	"**{v} 改了什么**\n" +
@@ -48,7 +48,7 @@ const defaultNotes = "**humanizer** rewrites AI-written drafts so they read like
 	"- **修复**：选档页偶尔把 `Q3` 的下载大小显示错。\n\n" +
 	"**下载**：Mac（Apple 芯片）用 `.dmg`；Windows 用 `setup.exe` 安装包或免安装 `portable.zip`。\n"
 
-var pkgRe = regexp.MustCompile(`^Humanizer-(\d+\.\d+\.\d+)-.+\.(dmg|exe|zip)$`)
+var pkgRe = regexp.MustCompile(`^Writeflow-(\d+\.\d+\.\d+)-.+\.(dmg|exe|zip)$`)
 
 type asset struct {
 	Name   string `json:"name"`

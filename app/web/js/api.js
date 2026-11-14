@@ -1,5 +1,5 @@
-// 和启动器说话。所有写操作都带 X-Humanizer 头(启动器据此挡掉别的网站发来的请求)。
-const H = { 'X-Humanizer': '1' };
+// 和启动器说话。所有写操作都带 X-Writeflow 头(启动器据此挡掉别的网站发来的请求)。
+const H = { 'X-Writeflow': '1' };
 
 // Keep the deadline active through response-body parsing, and distinguish it
 // from the caller's cancellation. Always release the timer and abort listener.

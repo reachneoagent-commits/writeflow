@@ -1,18 +1,23 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Humanizer</title>
+<title>Writeflow</title>
 <link rel="icon" href="img/mark.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/InstrumentSans-Variable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/BricolageGrotesque-Variable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/update.css">
+<link rel="stylesheet" href="css/wf-theme.css">
 <script src="js/boot.js"></script>
 <script type="module" src="js/app.js"></script>
 <script type="module" src="js/update.js"></script>
+<script type="module" src="js/wf/workspace.js"></script>
+<script type="module" src="js/wf/cloud.js"></script>
+<script type="module" src="js/wf/header.js"></script>
+<script type="module" src="js/wf/about.js"></script>
 </head>
 <body>
 
@@ -47,9 +52,9 @@
 </svg>
 
 <header class="bar">
-  <a class="brand" href="./" aria-label="Humanizer">
-    <svg class="brand-mark" aria-hidden="true"><use href="#i-mark"/></svg>
-    <span class="brand-word">humanizer</span>
+  <a class="brand" href="./" aria-label="Writeflow">
+    <img class="brand-mark" src="img/writeflow-mark.svg" alt="" aria-hidden="true">
+    <span class="brand-word">writeflow</span>
     <span class="brand-tag" id="brand-tag"></span>
   </a>
   <div class="bar-right">
@@ -61,94 +66,91 @@
     </button>
     <button class="icon-btn" id="btn-history" type="button" data-i18n-attr="title:history.title;aria-label:history.title"><svg><use href="#i-history"/></svg></button>
     <button class="icon-btn" id="btn-theme" type="button" data-i18n-attr="title:theme.toggle;aria-label:theme.toggle"><svg class="only-light"><use href="#i-moon"/></svg><svg class="only-dark"><use href="#i-sun"/></svg></button>
-    <div class="seg" role="group" aria-label="Language">
-      <button type="button" data-lang="zh">中</button><button type="button" data-lang="en">EN</button>
-    </div>
     <button class="icon-btn" id="btn-menu" type="button" aria-haspopup="dialog" data-i18n-attr="title:menu.title;aria-label:menu.title"><svg><use href="#i-more"/></svg></button>
   </div>
 </header>
 
-<!-- 模型面板(点状态灯或 … 打开) -->
+<!-- Model details panel (opens from the status pill or the more button) -->
 <div class="pop" id="pop" role="dialog" aria-modal="false" hidden>
   <dl class="pop-grid">
-    <dt data-i18n="menu.model">模型</dt><dd id="pi-model">—</dd>
-    <dt data-i18n="menu.engine">引擎</dt><dd id="pi-engine">—</dd>
-    <dt data-i18n="menu.device">设备</dt><dd id="pi-device">—</dd>
-    <dt data-i18n="menu.memory">内存</dt><dd id="pi-ram">—</dd>
-    <dt data-i18n="menu.context">上下文</dt><dd id="pi-ctx">—</dd>
-    <dt data-i18n="menu.paths">存储位置</dt><dd id="pi-paths">—</dd>
-    <dt data-i18n="upd.versionLabel">版本</dt><dd id="pi-version">—</dd>
+    <dt data-i18n="menu.model">Model</dt><dd id="pi-model">—</dd>
+    <dt data-i18n="menu.engine">Engine</dt><dd id="pi-engine">—</dd>
+    <dt data-i18n="menu.device">Device</dt><dd id="pi-device">—</dd>
+    <dt data-i18n="menu.memory">Memory</dt><dd id="pi-ram">—</dd>
+    <dt data-i18n="menu.context">Context</dt><dd id="pi-ctx">—</dd>
+    <dt data-i18n="menu.paths">Storage</dt><dd id="pi-paths">—</dd>
+    <dt data-i18n="upd.versionLabel">Version</dt><dd id="pi-version">—</dd>
   </dl>
   <div class="pop-actions">
-    <button class="row-btn" id="pa-tier" type="button"><svg><use href="#i-layers"/></svg><span data-i18n="menu.changeTier">更换模型档位</span></button>
-    <button class="row-btn" id="pa-paths" type="button"><svg><use href="#i-folder"/></svg><span data-i18n="menu.changePaths">更改存储位置</span></button>
-    <button class="row-btn" id="pa-reveal" type="button"><svg><use href="#i-folder"/></svg><span data-i18n="menu.reveal">打开模型文件夹</span></button>
-    <button class="row-btn" id="pa-restart" type="button"><svg><use href="#i-redo"/></svg><span data-i18n="menu.restart">重启引擎</span></button>
-    <button class="row-btn" id="pa-external" type="button"><svg><use href="#i-plug"/></svg><span data-i18n="ext.menu">外部模型服务</span><span class="row-badge ext-badge" id="pa-external-badge" data-i18n="ext.on" hidden>已开启</span></button>
-    <button class="row-btn" id="pa-update" type="button"><svg><use href="#i-update"/></svg><span data-i18n="upd.menu">检查更新</span><span class="row-badge" id="pa-update-badge" hidden></span></button>
-    <button class="row-btn danger" id="pa-quit" type="button"><svg><use href="#i-power"/></svg><span data-i18n="menu.quit">退出 Humanizer</span></button>
+    <button class="row-btn" id="pa-tier" type="button"><svg><use href="#i-layers"/></svg><span data-i18n="menu.changeTier">Change model size</span></button>
+    <button class="row-btn" id="pa-paths" type="button"><svg><use href="#i-folder"/></svg><span data-i18n="menu.changePaths">Change storage location</span></button>
+    <button class="row-btn" id="pa-reveal" type="button"><svg><use href="#i-folder"/></svg><span data-i18n="menu.reveal">Open model folder</span></button>
+    <button class="row-btn" id="pa-restart" type="button"><svg><use href="#i-redo"/></svg><span data-i18n="menu.restart">Restart engine</span></button>
+    <button class="row-btn" id="pa-external" type="button"><svg><use href="#i-plug"/></svg><span data-i18n="ext.menu">External model service</span><span class="row-badge ext-badge" id="pa-external-badge" data-i18n="ext.on" hidden>On</span></button>
+    <button class="row-btn" id="pa-update" type="button"><svg><use href="#i-update"/></svg><span data-i18n="upd.menu">Check for updates</span><span class="row-badge" id="pa-update-badge" hidden></span></button>
+    <button class="row-btn danger" id="pa-quit" type="button"><svg><use href="#i-power"/></svg><span data-i18n="menu.quit">Quit Writeflow</span></button>
   </div>
   <p class="pop-foot" id="pi-idle"></p>
 </div>
 
 <main id="main">
 
-  <!-- ───────── 首次运行 / 下载 / 出错 ───────── -->
+  <!-- ───────── First run / download / error ───────── -->
   <section class="setup" id="view-setup" hidden>
     <div class="setup-copy">
-      <p class="eyebrow" data-i18n="setup.eyebrow">首次使用</p>
+      <p class="eyebrow" data-i18n="setup.eyebrow">First run</p>
       <h1 class="display" id="setup-title"></h1>
-      <p class="lede" data-i18n="setup.lede">一次下载，之后完全离线运行。你的文字只在这台电脑上处理，不经过任何服务器。</p>
+      <p class="lede" data-i18n="setup.lede">One download, then it runs fully offline. Your text is processed on this computer and never leaves it.</p>
       <ul class="facts">
-        <li><b>12B</b><span data-i18n="setup.fact1">参数的改写模型</span></li>
-        <li><b>中 / EN</b><span data-i18n="setup.fact2">中文英文都能改</span></li>
-        <li><b data-i18n="setup.fact3b">离线</b><span data-i18n="setup.fact3">装好后不用联网</span></li>
+        <li><b>12B</b><span data-i18n="setup.fact1">parameter rewriting model</span></li>
+        <li><b>EN</b><span data-i18n="setup.fact2">Built for English writing</span></li>
+        <li><b data-i18n="setup.fact3b">Offline</b><span data-i18n="setup.fact3">no network needed once installed</span></li>
       </ul>
     </div>
 
     <div class="card" id="setup-card">
-      <!-- 选档 -->
+      <!-- Choose a model size -->
       <div class="pane" data-pane="choose">
         <p class="sysline" id="sysline"></p>
-        <p class="setup-notice ext-paths-note" id="ext-paths-note" data-i18n="paths.extNote" hidden>正在用外部模型服务：这里只改存储位置，自带引擎不会启动。要换回自带模型，先在右上角「…」→ 外部模型服务里关掉。</p>
+        <p class="setup-notice ext-paths-note" id="ext-paths-note" data-i18n="paths.extNote" hidden>An external model service is in use: this page only changes where files are stored, and the bundled engine will not start. To go back to the bundled model, turn the external service off first (top-right “…” → External model service).</p>
         <p class="setup-notice" id="setup-notice" hidden></p>
         <div class="tiers" id="tiers" role="radiogroup"></div>
         <label class="field">
-          <span data-i18n="setup.source">下载源</span>
+          <span data-i18n="setup.source">Download from</span>
           <select id="endpoint"></select>
         </label>
 
-        <!-- 存储位置:默认在系统盘,可以改到别的盘(数据目录、模型目录各一个) -->
+        <!-- Storage location: on the system drive by default, can be moved to another drive (one folder for data, one for models) -->
         <details class="paths" id="paths">
           <summary>
-            <span data-i18n="paths.title">存储位置</span>
+            <span data-i18n="paths.title">Storage location</span>
             <span class="paths-hint" id="paths-hint"></span>
           </summary>
           <div class="path-row">
-            <label class="path-label" for="path-data" data-i18n="paths.data">运行目录</label>
+            <label class="path-label" for="path-data" data-i18n="paths.data">Run folder</label>
             <input class="path-input" id="path-data" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">
-            <button class="btn ghost path-btn" id="pick-data" type="button"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n="paths.browse">更改…</span></button>
+            <button class="btn ghost path-btn" id="pick-data" type="button"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n="paths.browse">Change…</span></button>
           </div>
           <div class="path-row">
-            <label class="path-label" for="path-model" data-i18n="paths.model">模型目录</label>
+            <label class="path-label" for="path-model" data-i18n="paths.model">Models folder</label>
             <input class="path-input" id="path-model" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off">
-            <button class="btn ghost path-btn" id="pick-model" type="button"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n="paths.browse">更改…</span></button>
+            <button class="btn ghost path-btn" id="pick-model" type="button"><svg aria-hidden="true"><use href="#i-folder"/></svg><span data-i18n="paths.browse">Change…</span></button>
           </div>
           <p class="fine" id="paths-note"></p>
           <div class="paths-actions">
-            <label class="movebox"><input type="checkbox" id="path-move"><span data-i18n="paths.move">把已下载的模型一起搬过去</span></label>
-            <button class="btn ghost" id="paths-reset" type="button" data-i18n="paths.reset">恢复默认</button>
-            <button class="btn primary" id="paths-save" type="button" data-i18n="paths.save">保存位置</button>
+            <label class="movebox"><input type="checkbox" id="path-move"><span data-i18n="paths.move">Move the models already downloaded</span></label>
+            <button class="btn ghost" id="paths-reset" type="button" data-i18n="paths.reset">Back to default</button>
+            <button class="btn primary" id="paths-save" type="button" data-i18n="paths.save">Save location</button>
           </div>
         </details>
 
         <button class="cta" id="btn-download" type="button"><span id="cta-text"></span><svg><use href="#i-arrow"/></svg></button>
-        <button class="btn ghost back" id="btn-back" type="button" hidden data-i18n="setup.back">返回</button>
-        <p class="fine" id="setup-fine" data-i18n="setup.fine">模型存在本机的应用数据目录里，可以随时删掉。断网、关页面都能续传。</p>
-        <button class="btn ghost ext-link" id="btn-setup-external" type="button"><svg aria-hidden="true"><use href="#i-plug"/></svg><span data-i18n="ext.setupLink">已经在用 LM Studio 等本地模型服务？接入外部服务</span></button>
+        <button class="btn ghost back" id="btn-back" type="button" hidden data-i18n="setup.back">← Back to the current model</button>
+        <p class="fine" id="setup-fine" data-i18n="setup.fine">The model lives in this app’s data folder and can be deleted any time. Downloads resume after a dropped connection or a closed tab.</p>
+        <button class="btn ghost ext-link" id="btn-setup-external" type="button"><svg aria-hidden="true"><use href="#i-plug"/></svg><span data-i18n="ext.setupLink">Already running LM Studio or another local model server? Use it instead</span></button>
       </div>
 
-      <!-- 下载 / 校验 / 装载 -->
+      <!-- Download / verify / load -->
       <div class="pane" data-pane="progress" hidden>
         <div class="prog-head">
           <span class="eyebrow" id="prog-stage"></span>
@@ -162,63 +164,63 @@
         <p class="prog-stats mono" id="prog-stats">&nbsp;</p>
         <div class="prog-actions">
           <button class="btn" id="btn-pause" type="button"></button>
-          <button class="btn ghost" id="btn-rechoose" type="button" data-i18n="setup.rechoose">换一档</button>
+          <button class="btn ghost" id="btn-rechoose" type="button" data-i18n="setup.rechoose">Pick another</button>
         </div>
         <p class="fine" id="prog-note"></p>
       </div>
 
-      <!-- 出错 -->
+      <!-- Error -->
       <div class="pane" data-pane="error" hidden>
-        <p class="eyebrow err" data-i18n="err.eyebrow">出了点问题</p>
+        <p class="eyebrow err" data-i18n="err.eyebrow">Something went wrong</p>
         <h2 class="err-title" id="err-title"></h2>
         <p class="err-msg" id="err-msg"></p>
-        <details class="err-detail" id="err-detail-wrap"><summary data-i18n="err.detail">技术细节</summary><pre id="err-detail"></pre></details>
+        <details class="err-detail" id="err-detail-wrap"><summary data-i18n="err.detail">Technical details</summary><pre id="err-detail"></pre></details>
         <div class="prog-actions">
-          <button class="btn primary" id="btn-retry" type="button" data-i18n="err.retry">重试</button>
-          <button class="btn ghost" id="btn-err-choose" type="button" data-i18n="setup.rechoose">换一档</button>
-          <button class="btn ghost" id="btn-err-logs" type="button" data-i18n="err.logs">打开日志文件夹</button>
+          <button class="btn primary" id="btn-retry" type="button" data-i18n="err.retry">Retry</button>
+          <button class="btn ghost" id="btn-err-choose" type="button" data-i18n="setup.rechoose">Pick another</button>
+          <button class="btn ghost" id="btn-err-logs" type="button" data-i18n="err.logs">Open log folder</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ───────── 编辑器 ───────── -->
+  <!-- ───────── Editor ───────── -->
   <section class="editor" id="view-editor" hidden>
     <article class="sheet" id="sheet-draft">
       <header class="sheet-head">
         <span class="idx">01</span>
-        <h2 class="sheet-title" data-i18n="draft.title">草稿</h2>
-        <span class="sheet-sub" data-i18n="draft.sub">AI 写的原稿</span>
+        <h2 class="sheet-title" data-i18n="draft.title">Draft</h2>
+        <span class="sheet-sub" data-i18n="draft.sub">what the AI wrote</span>
         <span class="meta mono" id="draft-count"></span>
       </header>
       <div class="sheet-body">
         <div class="textview" id="draft-marks" aria-hidden="true"></div>
         <textarea id="draft" spellcheck="false" data-i18n-attr="placeholder:draft.placeholder;aria-label:draft.title"></textarea>
         <div class="samples" id="samples" hidden>
-          <span data-i18n="draft.try">没有草稿？试试示例</span>
+          <span data-i18n="draft.try">No draft handy? Try one</span>
           <span id="sample-btns"></span>
         </div>
-        <button class="fact-pop" id="btn-create-fact" type="button" hidden data-i18n-attr="title:facts.createHelp"><svg aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="facts.create">原样保留</span></button>
+        <button class="fact-pop" id="btn-create-fact" type="button" hidden data-i18n-attr="title:facts.createHelp"><svg aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="facts.create">Create fact</span></button>
         <div class="dropzone" id="dropzone" hidden>
           <span class="dz-icon"><svg><use href="#i-import"/></svg></span>
-          <span class="dz-title" data-i18n="draft.drop">松开即可导入</span>
+          <span class="dz-title" data-i18n="draft.drop">Drop to import</span>
           <span class="dz-sub mono">.docx · .pdf</span>
         </div>
       </div>
-      <p class="draft-note" id="draft-long" role="note" hidden><svg aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="draft.long">草稿较长，会自动分段改写。长文档更容易出现事实偏差，建议检查结果，或让 AI 把改错的地方纠正一下。</span></p>
+      <p class="draft-note" id="draft-long" role="note" hidden><svg aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="draft.long">Long draft: it will be rewritten in sections. Long documents drift on facts more often — please check the result, or ask an AI to fix any spots it got wrong.</span></p>
       <div class="factbar" id="facts-panel" hidden>
-        <span class="factbar-label" data-i18n-attr="title:facts.help"><svg aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="facts.title">原样保留</span><span class="factbar-count mono" id="facts-count"></span></span>
-        <p class="factbar-hint" id="facts-hint" data-i18n="facts.hint">在草稿里选中名字、数字、引文或术语，点「原样保留」，改写时一字不改。</p>
+        <span class="factbar-label" data-i18n-attr="title:facts.help"><svg aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="facts.title">Facts</span><span class="factbar-count mono" id="facts-count"></span></span>
+        <p class="factbar-hint" id="facts-hint" data-i18n="facts.hint">Select a name, number, quote or term in the draft and click Create fact: it comes back word for word.</p>
         <ul class="factbar-list" id="facts-list" data-i18n-attr="aria-label:facts.title"></ul>
       </div>
       <footer class="sheet-foot">
         <input id="document-file" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
-        <button class="tool" id="btn-paste" type="button"><svg><use href="#i-paste"/></svg><span data-i18n="draft.paste">粘贴</span></button>
-        <button class="tool" id="btn-upload" type="button" data-i18n-attr="title:draft.uploadHelp"><svg><use href="#i-import"/></svg><span data-i18n="draft.upload">导入</span></button>
-        <button class="tool" id="btn-clear" type="button"><svg><use href="#i-eraser"/></svg><span data-i18n="draft.clear">清空</span></button>
+        <button class="tool" id="btn-paste" type="button"><svg><use href="#i-paste"/></svg><span data-i18n="draft.paste">Paste</span></button>
+        <button class="tool" id="btn-upload" type="button" data-i18n-attr="title:draft.uploadHelp"><svg><use href="#i-import"/></svg><span data-i18n="draft.upload">Import</span></button>
+        <button class="tool" id="btn-clear" type="button"><svg><use href="#i-eraser"/></svg><span data-i18n="draft.clear">Clear</span></button>
         <span class="grow"></span>
-        <span class="legend" id="legend-fact" hidden><i class="sw fact-sw"></i><span data-i18n="facts.title">原样保留</span></span>
-        <span class="legend" id="legend-del" hidden><i class="sw del-sw"></i><span data-i18n="diff.removed">被改掉的</span></span>
+        <span class="legend" id="legend-fact" hidden><i class="sw fact-sw"></i><span data-i18n="facts.title">Facts</span></span>
+        <span class="legend" id="legend-del" hidden><i class="sw del-sw"></i><span data-i18n="diff.removed">cut</span></span>
       </footer>
     </article>
 
@@ -228,32 +230,32 @@
         <svg class="go-arrow"><use href="#i-arrow"/></svg>
         <svg class="go-stop"><use href="#i-stop"/></svg>
       </button>
-      <span class="go-label" id="go-label" data-i18n="go.label">改写</span>
+      <span class="go-label" id="go-label" data-i18n="go.label">Humanize</span>
       <kbd class="go-kbd" id="go-kbd">⌘ ↵</kbd>
     </div>
 
     <article class="sheet" id="sheet-out">
       <header class="sheet-head">
         <span class="idx">02</span>
-        <h2 class="sheet-title" data-i18n="out.title">改写</h2>
-        <span class="sheet-sub" data-i18n="out.sub">像人写的</span>
+        <h2 class="sheet-title" data-i18n="out.title">Rewrite</h2>
+        <span class="sheet-sub" data-i18n="out.sub">reads like a person</span>
         <span class="meta mono" id="out-count"></span>
-        <button class="tool toggle head-toggle" id="btn-diff" type="button" aria-pressed="true"><svg><use href="#i-diff"/></svg><span data-i18n="out.diff">显示改动</span></button>
+        <button class="tool toggle head-toggle" id="btn-diff" type="button" aria-pressed="true"><svg><use href="#i-diff"/></svg><span data-i18n="out.diff">Show changes</span></button>
       </header>
       <div class="sheet-body" id="out-body">
         <div class="document-progress" id="document-progress" hidden>
           <div class="dp-row">
             <p id="document-status" role="status" aria-live="polite"></p>
-            <button class="tool" id="btn-document-resume" type="button" hidden><svg><use href="#i-arrow"/></svg><span data-i18n="document.resume">继续改写</span></button>
-            <button class="tool" id="btn-document-restart" type="button" hidden><svg><use href="#i-redo"/></svg><span data-i18n="document.restart">重新开始</span></button>
+            <button class="tool" id="btn-document-resume" type="button" hidden><svg><use href="#i-arrow"/></svg><span data-i18n="document.resume">Resume</span></button>
+            <button class="tool" id="btn-document-restart" type="button" hidden><svg><use href="#i-redo"/></svg><span data-i18n="document.restart">Start over</span></button>
           </div>
           <progress id="document-meter" value="0" max="1" data-i18n-attr="aria-label:document.progress"></progress>
         </div>
         <div class="notice" id="out-notice" hidden></div>
         <div class="textview" id="output" aria-live="polite"></div>
         <div class="empty" id="out-empty">
-          <svg class="empty-mark" aria-hidden="true"><use href="#i-mark"/></svg>
-          <p class="empty-title" data-i18n="out.empty">改写会出现在这里</p>
+          <img class="empty-mark" src="img/writeflow-mark.svg" alt="" aria-hidden="true">
+          <p class="empty-title" data-i18n="out.empty">The rewrite shows up here</p>
           <p class="empty-sub" id="out-empty-sub"></p>
         </div>
       </div>
@@ -262,39 +264,39 @@
         <span class="legend" id="out-facts" hidden><i class="sw fact-sw"></i><span id="out-facts-text"></span></span>
         <span class="mono dim small stats" id="out-stats"></span>
         <span class="grow"></span>
-        <button class="tool" id="btn-regen" type="button" disabled><svg><use href="#i-redo"/></svg><span data-i18n="out.regen">重新生成</span></button>
-        <button class="tool" id="btn-download-text" type="button" disabled data-i18n-attr="title:document.downloadHelp"><svg><use href="#i-update"/></svg><span data-i18n="document.download">下载</span></button>
-        <button class="tool solid" id="btn-copy" type="button" disabled><svg><use href="#i-copy"/></svg><span data-i18n="out.copy">复制</span></button>
+        <button class="tool" id="btn-regen" type="button" disabled><svg><use href="#i-redo"/></svg><span data-i18n="out.regen">Regenerate</span></button>
+        <button class="tool" id="btn-download-text" type="button" disabled data-i18n-attr="title:document.downloadHelp"><svg><use href="#i-update"/></svg><span data-i18n="document.download">Download</span></button>
+        <button class="tool solid" id="btn-copy" type="button" disabled><svg><use href="#i-copy"/></svg><span data-i18n="out.copy">Copy</span></button>
       </footer>
     </article>
   </section>
 </main>
 
-<!-- 历史 -->
+<!-- History -->
 <aside class="drawer" id="drawer" aria-hidden="true">
   <header class="drawer-head">
-    <h2 data-i18n="history.title">历史</h2>
+    <h2 data-i18n="history.title">History</h2>
     <span class="mono dim" id="history-count"></span>
     <span class="grow"></span>
-    <button class="tool" id="btn-history-clear" type="button"><svg><use href="#i-trash"/></svg><span data-i18n="history.clear">清空</span></button>
+    <button class="tool" id="btn-history-clear" type="button"><svg><use href="#i-trash"/></svg><span data-i18n="history.clear">Clear</span></button>
     <button class="icon-btn" id="btn-drawer-close" type="button" data-i18n-attr="aria-label:common.close"><svg><use href="#i-close"/></svg></button>
   </header>
-  <p class="drawer-note" data-i18n="history.note">只存在这台电脑的浏览器里，最多 100 条。</p>
+  <p class="drawer-note" data-i18n="history.note">Kept only in this browser on this computer, up to 100 items.</p>
   <ol class="hist" id="hist"></ol>
-  <div class="hist-empty" id="hist-empty" data-i18n="history.empty">改写过的内容会出现在这里。</div>
+  <div class="hist-empty" id="hist-empty" data-i18n="history.empty">Your rewrites will show up here.</div>
 </aside>
 <div class="scrim" id="scrim" hidden></div>
 
 <div class="numbers-pop" id="numbers-pop" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- 检查更新(js/update.js 渲染) -->
+<!-- Update check (drawn by js/update.js) -->
 <div class="upd-scrim" id="upd-scrim" hidden></div>
 <section class="upd" id="upd" role="dialog" aria-modal="true" aria-labelledby="upd-title" hidden>
   <header class="upd-head">
     <div class="upd-head-text">
-      <p class="eyebrow"><span data-i18n="upd.eyebrow">更新</span><span class="upd-last" id="upd-last"></span></p>
-      <h2 class="upd-title" id="upd-title" data-i18n="upd.title">App 与模型</h2>
+      <p class="eyebrow"><span data-i18n="upd.eyebrow">Updates</span><span class="upd-last" id="upd-last"></span></p>
+      <h2 class="upd-title" id="upd-title" data-i18n="upd.title">App &amp; model</h2>
     </div>
     <button class="icon-btn" id="upd-close" type="button" data-i18n-attr="aria-label:common.close;title:common.close"><svg><use href="#i-close"/></svg></button>
   </header>
@@ -307,49 +309,49 @@
     <label class="switch">
       <input type="checkbox" id="upd-auto">
       <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
-      <span class="switch-label"><span data-i18n="upd.auto">每天自动检查一次</span><small data-i18n="upd.autoHint">只访问 GitHub 和 Hugging Face 的公开接口，不发送任何个人信息。</small></span>
+      <span class="switch-label"><span data-i18n="upd.auto">Check automatically once a day</span><small data-i18n="upd.autoHint">Public GitHub and Hugging Face APIs only; nothing personal is sent.</small></span>
     </label>
-    <button class="btn" id="upd-check" type="button"><svg aria-hidden="true"><use href="#i-redo"/></svg><span id="upd-check-text" data-i18n="upd.checkNow">立即检查</span></button>
+    <button class="btn" id="upd-check" type="button"><svg aria-hidden="true"><use href="#i-redo"/></svg><span id="upd-check-text" data-i18n="upd.checkNow">Check now</span></button>
   </footer>
 </section>
 
-<!-- 外部模型服务(js/external.js) -->
+<!-- External model service (js/external.js) -->
 <div class="upd-scrim" id="ext-scrim" hidden></div>
 <section class="upd ext" id="ext" role="dialog" aria-modal="true" aria-labelledby="ext-title" hidden>
   <header class="upd-head">
     <div class="upd-head-text">
-      <p class="eyebrow" data-i18n="ext.eyebrow">高级设置</p>
-      <h2 class="upd-title" id="ext-title" data-i18n="ext.title">外部模型服务</h2>
+      <p class="eyebrow" data-i18n="ext.eyebrow">Advanced</p>
+      <h2 class="upd-title" id="ext-title" data-i18n="ext.title">External model service</h2>
     </div>
     <button class="icon-btn" id="ext-close" type="button" data-i18n-attr="aria-label:common.close;title:common.close"><svg><use href="#i-close"/></svg></button>
   </header>
   <div class="upd-body">
-    <p class="ext-lede" data-i18n="ext.lede">已经在 LM Studio、llama-server、Ollama 等工具里跑着 humanizer 模型？填它的 OpenAI 兼容地址，App 就不再启动自带的引擎，改写直接交给它。</p>
+    <p class="ext-lede" data-i18n="ext.lede">Already running the rewrite model (jialinyyzz/humanizer) in LM Studio, llama-server, Ollama or similar? Enter its OpenAI-compatible address and the app stops starting its own engine and sends rewrites there.</p>
     <label class="switch ext-switch">
       <input type="checkbox" id="ext-enabled">
       <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
-      <span class="switch-label"><span data-i18n="ext.enable">使用外部服务</span><small data-i18n="ext.enableHint">关掉就恢复自带引擎，已下载的模型不受影响。</small></span>
+      <span class="switch-label"><span data-i18n="ext.enable">Use an external service</span><small data-i18n="ext.enableHint">Turn it off to go back to the built-in engine; downloaded models are kept.</small></span>
     </label>
-    <label class="ext-field"><span data-i18n="ext.url">服务地址</span>
+    <label class="ext-field"><span data-i18n="ext.url">Server address</span>
       <input id="ext-url" type="text" inputmode="url" placeholder="http://localhost:1234/v1" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-    <label class="ext-field"><span data-i18n="ext.model">模型名（可选）</span>
+    <label class="ext-field"><span data-i18n="ext.model">Model name (optional)</span>
       <input id="ext-model" type="text" list="ext-models" spellcheck="false" autocomplete="off" autocapitalize="off" data-i18n-attr="placeholder:ext.modelPh"><datalist id="ext-models"></datalist></label>
-    <label class="ext-field"><span data-i18n="ext.key">API key（可选）</span>
+    <label class="ext-field"><span data-i18n="ext.key">API key (optional)</span>
       <span class="ext-key-row"><input id="ext-key" type="password" spellcheck="false" autocomplete="off" data-i18n-attr="placeholder:ext.keyPh">
-      <button class="btn ghost" id="ext-key-clear" type="button" hidden data-i18n="ext.keyClear">清除</button></span></label>
+      <button class="btn ghost" id="ext-key-clear" type="button" hidden data-i18n="ext.keyClear">Clear</button></span></label>
     <div class="ext-result" id="ext-result" role="status" hidden></div>
-    <p class="fine" data-i18n="ext.note">请求格式：流式 /chat/completions，草稿是唯一一条 user 消息，不带 system，temperature 1.0、top_p 0.95，和使用文档第 8 节一致。服务端要加载 humanizer 的 GGUF（2026-10-04 之后下载的文件自带模板），上下文建议 8192。服务没有数 token 的接口，长度按字数估算。草稿会发到这个地址：填本机地址才是完全离线。API key 只存在本机的数据目录里。</p>
+    <p class="fine" data-i18n="ext.note">Request format: streaming /chat/completions, the draft as the only user message, no system message, temperature 1.0, top_p 0.95 (same as section 8 of the usage guide). Load the humanizer GGUF on the server (files downloaded on or after 2026-10-04 carry the template) with an 8192 context. These servers can’t count tokens, so lengths are estimated from the word count. Drafts are sent to this address: only a local address keeps everything offline. The API key is stored only in the app’s data folder on this computer.</p>
   </div>
   <footer class="upd-foot">
-    <button class="btn" id="ext-test" type="button"><svg aria-hidden="true"><use href="#i-redo"/></svg><span data-i18n="ext.test">测试连接</span></button>
+    <button class="btn" id="ext-test" type="button"><svg aria-hidden="true"><use href="#i-redo"/></svg><span data-i18n="ext.test">Test connection</span></button>
     <span class="grow"></span>
-    <button class="btn primary" id="ext-save" type="button" data-i18n="ext.save">保存</button>
+    <button class="btn primary" id="ext-save" type="button" data-i18n="ext.save">Save</button>
   </footer>
 </section>
 
 <div class="upd-overlay" id="upd-overlay" hidden>
   <div class="overlay-card">
-    <svg class="empty-mark" aria-hidden="true"><use href="#i-mark"/></svg>
+    <img class="empty-mark" src="img/writeflow-mark.svg" alt="" aria-hidden="true">
     <h2 id="upd-ov-title"></h2>
     <p id="upd-ov-msg"></p>
     <div class="upd-ov-bar" id="upd-ov-bar" aria-hidden="true"><i></i></div>
@@ -358,7 +360,7 @@
 
 <div class="overlay" id="overlay" hidden>
   <div class="overlay-card">
-    <svg class="empty-mark" aria-hidden="true"><use href="#i-mark"/></svg>
+    <img class="empty-mark" src="img/writeflow-mark.svg" alt="" aria-hidden="true">
     <h2 id="overlay-title"></h2>
     <p id="overlay-msg"></p>
   </div>

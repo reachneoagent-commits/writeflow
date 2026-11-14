@@ -40,7 +40,7 @@ func runPickScript(ctx context.Context, script, from, title string) (string, err
 		// 三种方式都不行:细节进日志,给网页一句能看懂的话
 		msg := strings.TrimSpace(firstLine(errb.String()))
 		if msg == "" {
-			msg = "三种 Windows 文件夹选择器都没能启动"
+			msg = "None of the three Windows folder pickers could start"
 		}
 		return "", errors.New(msg)
 	}

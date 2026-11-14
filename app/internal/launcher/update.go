@@ -8,7 +8,7 @@ package launcher
 //   - 模型:对本机已下载的每个档位,HEAD 一下 HF 上同名文件拿 sha256 和大小,
 //     和本地指纹比;有新版可一键下载到 <模型>.update,校验后替换。见 update_models.go。
 //
-// 隐私:只请求 GitHub / HF(或用户选的镜像)的公开接口;UA 只有 "humanizer-app/<版本>",
+// 隐私:只请求 GitHub / HF(或用户选的镜像)的公开接口;UA 只有 "writeflow-app/<version>",
 // 不带账号、邮箱、设备信息、Cookie。网络不通时安静失败,只在用户手动检查时提示。
 
 import (
@@ -154,7 +154,7 @@ func newUpdater(a *App) *updater {
 		cfg:     a.cfg,
 		dataDir: a.dataDir,
 		version: a.opts.Version,
-		ua:      "humanizer-app/" + a.opts.Version,
+		ua:      "writeflow-app/" + a.opts.Version,
 		client:  newHTTPClient(),
 		logf:    a.logf,
 		eng:     appEngine{a},
@@ -265,9 +265,9 @@ func (u *updater) check(ctx context.Context, manual bool) {
 	u.st.LastAttempt = time.Now()
 	u.mu.Unlock()
 	if manual {
-		u.logf("检查更新(手动)")
+		u.logf("Checking for updates (manual)")
 	} else {
-		u.logf("检查更新(后台,每天最多一次)")
+		u.logf("Checking for updates (background, at most once a day)")
 	}
 
 	var wg sync.WaitGroup
@@ -289,7 +289,7 @@ func (u *updater) check(ctx context.Context, manual bool) {
 		u.st.LastOK = time.Now()
 	}
 	if err != nil {
-		u.logf("检查更新没完成:%v", err)
+		u.logf("The update check didn't finish: %v", err)
 	}
 	u.saveLocked()
 }
@@ -343,13 +343,17 @@ func (u *updater) checkApp(ctx context.Context) error {
 	switch {
 	case resp.StatusCode == http.StatusNotModified:
 		return nil
-	case resp.StatusCode != http.StatusOK:
+	case resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound:
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 		return &httpStatusErr{Code: resp.StatusCode, RateLimited: resp.Header.Get("X-RateLimit-Remaining") == "0"}
 	}
 	var rels []ghRelease
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&rels); err != nil {
-		return fmt.Errorf("GitHub 返回的不是预期的 JSON: %w", err)
+	if resp.StatusCode == http.StatusNotFound {
+		// Writeflow: the releases repo has no releases yet (or isn't published yet). Not an error:
+		// treat it as "no releases", so a fresh install says it is up to date instead of "check failed".
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	} else if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&rels); err != nil {
+		return fmt.Errorf("GitHub returned something that isn't the expected JSON: %w", err)
 	}
 	best := pickLatestRelease(rels, u.cfg.Update.TagPrefix)
 	u.mu.Lock()
@@ -369,7 +373,7 @@ func (u *updater) checkApp(ctx context.Context) error {
 		}
 	}
 	if best != nil {
-		u.logf("GitHub 上最新的 App 是 %s(当前 %s)", best.Version, u.version)
+		u.logf("Latest app on GitHub is %s (current %s)", best.Version, u.version)
 	}
 	return nil
 }
@@ -415,13 +419,13 @@ func pickLatestRelease(rels []ghRelease, prefix string) *appRelease {
 	return best
 }
 
-// pickAsset 按平台后缀挑安装包(Humanizer-0.3.2-macos-arm64.dmg 之类)。
+// pickAsset 按平台后缀挑安装包(Writeflow-0.3.2-macos-arm64.dmg 之类)。
 func pickAsset(assets []releaseAsset, suffix string) *releaseAsset {
 	if suffix == "" {
 		return nil
 	}
 	for i, a := range assets {
-		if strings.HasSuffix(strings.ToLower(a.Name), strings.ToLower(suffix)) && strings.HasPrefix(a.Name, "Humanizer-") {
+		if strings.HasSuffix(strings.ToLower(a.Name), strings.ToLower(suffix)) && strings.HasPrefix(a.Name, "Writeflow-") {
 			return &assets[i]
 		}
 	}
@@ -466,7 +470,7 @@ func (u *updater) fetchSums(ctx context.Context, url string) ([]byte, error) {
 // 成功检查过的 24 小时内不再查;失败的 3 小时内不重试。
 func (u *updater) autoLoop(ctx context.Context, enabled func() bool, busy func() bool) {
 	delay := 20 * time.Second
-	if v, err := strconv.Atoi(os.Getenv("HUMANIZER_UPDATE_DELAY_SEC")); err == nil && v >= 0 {
+	if v, err := strconv.Atoi(os.Getenv("WRITEFLOW_UPDATE_DELAY_SEC")); err == nil && v >= 0 {
 		delay = time.Duration(v) * time.Second
 	}
 	interval := time.Duration(u.cfg.Update.IntervalHours) * time.Hour

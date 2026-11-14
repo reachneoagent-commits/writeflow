@@ -1,13 +1,13 @@
-# Humanizer 桌面 App 打包。
+# Writeflow 桌面 App 打包。
 #
 # 10-01 已挪到仓库根目录 .github/workflows/。
 # 触发:手动(Actions 页面 → release-app → Run workflow,填版本号),或推 app-v* 标签(如 app-v0.3.2)。
 # 推标签时会额外建一个 *草稿* Release 挂上安装包,需要人去 GitHub 上点发布。
 #
 # 产物:
-#   Humanizer-<版本>-macos-arm64.dmg              (含 Humanizer.app,Apple 芯片)
-#   Humanizer-<版本>-windows-x64-setup.exe        (Inno Setup 安装包,按用户安装,不要管理员)
-#   Humanizer-<版本>-windows-x64-portable.zip     (解压即用)
+#   Writeflow-<版本>-macos-arm64.dmg              (含 Writeflow.app,Apple 芯片)
+#   Writeflow-<版本>-windows-x64-setup.exe        (Inno Setup 安装包,按用户安装,不要管理员)
+#   Writeflow-<版本>-windows-x64-portable.zip     (解压即用)
 #
 # 引擎:llama.cpp 官方发布二进制,版本和 sha256 钉在 app/packaging/llama-cpp.lock.json。
 #
@@ -65,6 +65,8 @@ jobs:
         run: node devtools/webtest.mjs
       - name: 更新面板逻辑单测
         run: node devtools/webtest_update.mjs
+      - name: Writeflow score, facts and style tests
+        run: node --test web/test/wf.test.mjs
       - name: 端到端(假引擎 + 假下载源)
         run: bash devtools/e2e.sh
 
@@ -111,16 +113,16 @@ jobs:
       - name: 冒烟:.app 里的启动器能找到引擎、引擎能跑
         run: |
           D="$RUNNER_TEMP/hz"
-          dist/mac/Humanizer.app/Contents/Resources/engine/metal/llama-server --version
-          dist/mac/Humanizer.app/Contents/MacOS/Humanizer --serve --no-browser --data-dir "$D" --port 47800 &
+          dist/mac/Writeflow.app/Contents/Resources/engine/metal/llama-server --version
+          dist/mac/Writeflow.app/Contents/MacOS/Writeflow --serve --no-browser --data-dir "$D" --port 47800 &
           for i in $(seq 1 40); do curl -sf http://127.0.0.1:47800/app/status > status.json && break; sleep 0.5; done
           cat status.json
           grep -q '"backends":\["metal","cpu"\]' status.json
-          curl -s -X POST -H 'X-Humanizer: 1' http://127.0.0.1:47800/app/quit
+          curl -s -X POST -H 'X-Writeflow: 1' http://127.0.0.1:47800/app/quit
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: macos
-          path: app/dist/Humanizer-*-macos-arm64.dmg
+          path: app/dist/Writeflow-*-macos-arm64.dmg
           if-no-files-found: error
 
   windows:
@@ -146,17 +148,17 @@ jobs:
         run: |
           D="$RUNNER_TEMP/hz"
           dist/win/engine/cpu/llama-server.exe --version
-          (dist/win/Humanizer.exe --no-browser --data-dir "$D" --port 47801 &)
+          (dist/win/Writeflow.exe --no-browser --data-dir "$D" --port 47801 &)
           for i in $(seq 1 40); do curl -sf http://127.0.0.1:47801/app/status > status.json && break; sleep 0.5; done
           cat status.json
           grep -q '"cpu"' status.json
-          curl -s -X POST -H 'X-Humanizer: 1' http://127.0.0.1:47801/app/quit
+          curl -s -X POST -H 'X-Writeflow: 1' http://127.0.0.1:47801/app/quit
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows
           path: |
-            app/dist/Humanizer-*-windows-x64-setup.exe
-            app/dist/Humanizer-*-windows-x64-portable.zip
+            app/dist/Writeflow-*-windows-x64-setup.exe
+            app/dist/Writeflow-*-windows-x64-portable.zip
           if-no-files-found: error
 
   release:
@@ -178,5 +180,5 @@ jobs:
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           draft: true
-          name: Humanizer App ${{ github.ref_name }}
+          name: Writeflow App ${{ github.ref_name }}
           files: out/*

@@ -1,9 +1,9 @@
 """Windows 上装一遍、改存储位置、卸一遍,核对「只删我们自己的东西」。
 
-只在 GitHub 的 Windows runner(一次性虚拟机)上跑:它会装真的安装包、动真的 %LOCALAPPDATA%\\Humanizer、
+只在 GitHub 的 Windows runner(一次性虚拟机)上跑:它会装真的安装包、动真的 %LOCALAPPDATA%\\Writeflow、
 在 D 盘建目录。别在自己的电脑上跑。
 
-    python devtools/win_storage_test.py dist/Humanizer-0.0.0-windows-x64-setup.exe
+    python devtools/win_storage_test.py dist/Writeflow-0.0.0-windows-x64-setup.exe
 
 安装包里的引擎是假引擎(devtools/fakellama),不加载真模型。
 """
@@ -17,8 +17,8 @@ import urllib.request
 
 SETUP = os.path.abspath(sys.argv[1])
 LAD = os.environ["LOCALAPPDATA"]
-DEF = os.path.join(LAD, "Humanizer")
-INST = os.path.join(LAD, "Programs", "Humanizer")
+DEF = os.path.join(LAD, "Writeflow")
+INST = os.path.join(LAD, "Programs", "Writeflow")
 HOME = os.environ["USERPROFILE"]
 PORT = 47830
 Q8 = "humanizer-12b-Q8_0.gguf"
@@ -63,14 +63,14 @@ def procs(prefix):
 
 def install():
     subprocess.run([SETUP, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], check=True, timeout=600)
-    assert exists(INST, "Humanizer.exe"), "安装后找不到 Humanizer.exe"
+    assert exists(INST, "Writeflow.exe"), "安装后找不到 Writeflow.exe"
 
 
 def uninstall(delete_data):
     env = dict(os.environ)
-    env.pop("HUMANIZER_UNINSTALL_DELETE_DATA", None)
+    env.pop("WRITEFLOW_UNINSTALL_DELETE_DATA", None)
     if delete_data:
-        env["HUMANIZER_UNINSTALL_DELETE_DATA"] = "1"
+        env["WRITEFLOW_UNINSTALL_DELETE_DATA"] = "1"
     log = os.path.join(os.environ.get("RUNNER_TEMP", LAD), "uninstall.log")
     subprocess.run([os.path.join(INST, "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=" + log],
                    env=env, check=True, timeout=300)
@@ -80,7 +80,7 @@ def uninstall(delete_data):
             break
         time.sleep(0.5)
     time.sleep(1)
-    assert not exists(INST, "Humanizer.exe"), "卸载后程序文件还在"
+    assert not exists(INST, "Writeflow.exe"), "卸载后程序文件还在"
     try:  # 卸载脚本自己写的两行(读到的 location.json、决定清哪些目录)
         for line in open(log, encoding="utf-8", errors="replace"):
             if "location.json:" in line or "要清理" in line:
@@ -92,7 +92,7 @@ def uninstall(delete_data):
 def api(path, body=None):
     req = urllib.request.Request(f"http://127.0.0.1:{PORT}{path}", method="POST" if body is not None else "GET",
                                  data=json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None,
-                                 headers={"X-Humanizer": "1", "Content-Type": "application/json"})
+                                 headers={"X-Writeflow": "1", "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
             return r.status, json.load(r)
@@ -101,8 +101,8 @@ def api(path, body=None):
 
 
 def start():
-    env = dict(os.environ, HUMANIZER_UPDATE_API="http://127.0.0.1:9", HUMANIZER_UPDATE_DELAY_SEC="3600")
-    p = subprocess.Popen([os.path.join(INST, "Humanizer.exe"), "--no-browser", "--port", str(PORT), "--idle-exit", "0"], env=env)
+    env = dict(os.environ, WRITEFLOW_UPDATE_API="http://127.0.0.1:9", WRITEFLOW_UPDATE_DELAY_SEC="3600")
+    p = subprocess.Popen([os.path.join(INST, "Writeflow.exe"), "--no-browser", "--port", str(PORT), "--idle-exit", "0"], env=env)
     for _ in range(100):
         try:
             api("/app/status")
@@ -173,13 +173,13 @@ check("location.json 里中文原样写、没有 \\u 转义(卸载程序只认 \
 loc = json.loads(raw)
 check("location.json 读回来就是那两个目录", same(loc["data_dir"], RUN_DIR) and same(loc["model_dir"], MODEL_DIR))
 
-# 选一个已经有别的东西的文件夹当运行目录:要改用里面的 Humanizer 子文件夹,不能覆盖别人的 settings.json
+# 选一个已经有别的东西的文件夹当运行目录:要改用里面的 Writeflow 子文件夹,不能覆盖别人的 settings.json
 busy = ROOT + "\\已经有东西"
 write(os.path.join(busy, "settings.json"), b"user's own")
 write(os.path.join(busy, "config.json"), b"{not json")
 code, r = api("/app/paths", {"data_dir": busy, "model_dir": MODEL_DIR})
 st = api("/app/status")[1]
-check("有别的文件的文件夹 → 用里面的 Humanizer 子文件夹", code == 200 and same(st["data_dir"], busy + "\\Humanizer"))
+check("有别的文件的文件夹 → 用里面的 Writeflow 子文件夹", code == 200 and same(st["data_dir"], busy + "\\Writeflow"))
 check("别人的 settings.json 没被覆盖", open(os.path.join(busy, "settings.json"), "rb").read() == b"user's own")
 code, r = api("/app/paths", {"data_dir": RUN_DIR, "model_dir": MODEL_DIR})
 check("改回中文运行目录", code == 200 and wait_phase("ready"))
@@ -212,17 +212,17 @@ quit_app(app)
 
 print("4. 卸载并删数据:默认目录整个删,改过的目录只删我们的文件;链接指向的东西不碰")
 write(os.path.join(RUN_DIR, "我的笔记.txt"), b"mine")              # 用户后来放进运行目录的
-write(os.path.join(RUN_DIR, "updates", "Humanizer-9.9.9-windows-x64-setup.exe"), b"pkg")
+write(os.path.join(RUN_DIR, "updates", "Writeflow-9.9.9-windows-x64-setup.exe"), b"pkg")
 victim1, victim2 = ROOT + "\\victim1", ROOT + "\\victim2"
 write(os.path.join(victim1, "keep.txt"))
 write(os.path.join(victim2, "keep.txt"))
 junction(os.path.join(DEF, "link-to-victim"), victim1)
-junction(os.path.join(RUN_DIR, "updates", "humanizer-updater-x"), victim2)
+junction(os.path.join(RUN_DIR, "updates", "writeflow-updater-x"), victim2)
 uninstall(delete_data=True)
 check("默认目录删掉了", not exists(DEF))
 check("默认目录里的目录联接指向的东西还在", exists(victim1, "keep.txt"))
 check("运行目录里我们的文件删了", not exists(RUN_DIR, "settings.json") and not exists(RUN_DIR, "logs"))
-check("运行目录里下载的新版安装包删了", not exists(RUN_DIR, "updates", "Humanizer-9.9.9-windows-x64-setup.exe"))
+check("运行目录里下载的新版安装包删了", not exists(RUN_DIR, "updates", "Writeflow-9.9.9-windows-x64-setup.exe"))
 check("运行目录里名字像更新助手的目录联接只删了链接,指向的东西还在", exists(victim2, "keep.txt"))
 check("运行目录里用户自己的文件还在(所以运行目录本身也留着)", exists(RUN_DIR, "我的笔记.txt"))
 check("模型目录里我们的模型删了", not exists(MODEL_DIR, Q8))
@@ -330,7 +330,7 @@ try:
           and "sk-win" not in open(os.path.join(ext_run, "settings.json"), encoding="utf-8").read())
     code, r = api("/app/setup", {"tier": "q8"})
     check(f"外部模式下换档仍然被拒(HTTP {code})", code == 409)
-    req = urllib.request.Request(f"http://127.0.0.1:{PORT}/api/v1/chat/completions", method="POST", headers={"X-Humanizer": "1", "Content-Type": "application/json"},
+    req = urllib.request.Request(f"http://127.0.0.1:{PORT}/api/v1/chat/completions", method="POST", headers={"X-Writeflow": "1", "Content-Type": "application/json"},
                                  data=json.dumps({"model": "humanizer-12b-q8_0", "messages": [{"role": "user", "content": "A short draft. It has two sentences."}],
                                                   "temperature": 1.0, "top_p": 0.95, "max_tokens": 256, "stream": True}).encode())
     with urllib.request.urlopen(req, timeout=60) as resp:

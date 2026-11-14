@@ -60,7 +60,7 @@ func (a *App) handleUpdateAction(w http.ResponseWriter, r *http.Request) {
 		go u.check(a.rootCtx, true)
 	case "auto":
 		if req.Auto == nil {
-			err = &PermanentError{Code: "bad_request", Msg: "缺少 auto"}
+			err = &PermanentError{Code: "bad_request", Msg: "Missing auto"}
 			break
 		}
 		v := *req.Auto
@@ -107,7 +107,7 @@ func (a *App) handleUpdateAction(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-// runApplyHelper:Windows 更新助手的入口(Humanizer.exe --apply-update <计划>)。
+// runApplyHelper:Windows 更新助手的入口(Writeflow.exe --apply-update <计划>)。
 // 它是从数据目录里的一份副本跑起来的,所以可以放心替换安装目录。
 func runApplyHelper(planPath string) int {
 	b, err := os.ReadFile(planPath)
@@ -126,7 +126,7 @@ func runApplyHelper(planPath string) int {
 		w = lf
 	}
 	logger := log.New(w, "", log.LstdFlags)
-	logger.Printf("===== 更新助手:%s → %s", p.From, p.To)
+	logger.Printf("===== Update helper: %s -> %s", p.From, p.To)
 	res := runApplyPlan(&p, defaultApplyHooks(logger.Printf))
 	_ = os.Remove(planPath)
 	if !res.OK {
@@ -152,11 +152,11 @@ func extractZip(src, dst string) error {
 	for _, f := range zr.File {
 		name := strings.ReplaceAll(f.Name, `\`, "/")
 		if name == "" || strings.HasPrefix(name, "/") || filepath.IsAbs(name) || strings.Contains(name, ":") {
-			return fmt.Errorf("压缩包里有不安全的路径:%q", f.Name)
+			return fmt.Errorf("The archive contains an unsafe path: %q", f.Name)
 		}
 		target := filepath.Join(root, filepath.FromSlash(name))
 		if target != root && !strings.HasPrefix(target, root+string(filepath.Separator)) {
-			return fmt.Errorf("压缩包里有不安全的路径:%q", f.Name)
+			return fmt.Errorf("The archive contains an unsafe path: %q", f.Name)
 		}
 		if f.FileInfo().IsDir() || strings.HasSuffix(name, "/") {
 			if err := os.MkdirAll(target, 0o755); err != nil {
@@ -165,7 +165,7 @@ func extractZip(src, dst string) error {
 			continue
 		}
 		if f.FileInfo().Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("压缩包里有符号链接:%q", f.Name)
+			return fmt.Errorf("The archive contains a symbolic link: %q", f.Name)
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err

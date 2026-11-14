@@ -43,19 +43,19 @@ func envOr(k, def string) string {
 
 // Main 是启动器入口,返回进程退出码。
 func Main(o Options) int {
-	fl := flag.NewFlagSet("humanizer", flag.ContinueOnError)
-	dataDirFlag := fl.String("data-dir", os.Getenv("HUMANIZER_DATA_DIR"), "数据目录(设置、日志、更新包;模型目录在网页上改)。不给就用系统默认位置或网页上改过的位置")
+	fl := flag.NewFlagSet("writeflow", flag.ContinueOnError)
+	dataDirFlag := fl.String("data-dir", os.Getenv("WRITEFLOW_DATA_DIR"), "Data folder (settings, logs, update packages; the model folder is changed in the page). If not given, the system default or the location chosen in the page is used")
 	var engines multiFlag
-	fl.Var(&engines, "engine", "指定 llama-server 路径,可写 name=path,可重复(开发/测试用)")
-	baseURL := fl.String("base-url", envOr("HUMANIZER_BASE_URL", os.Getenv("HF_ENDPOINT")), "自定义下载源(替代 huggingface.co)")
-	noBrowser := fl.Bool("no-browser", os.Getenv("HUMANIZER_NO_BROWSER") != "", "不自动打开浏览器")
-	webDir := fl.String("web-dir", os.Getenv("HUMANIZER_WEB_DIR"), "从磁盘读网页(开发用,改完刷新即可)")
-	port := fl.Int("port", atoiOr(os.Getenv("HUMANIZER_PORT"), 0), "网页端口(默认用配置里的固定端口,保证历史记录不丢)")
-	idle := fl.Int("idle-exit", atoiOr(os.Getenv("HUMANIZER_IDLE_EXIT"), -1), "网页关闭多少分钟后自动退出,0=不退出,-1=用配置")
-	serve := fl.Bool("serve", false, "前台运行服务(macOS .app 内部使用)")
-	showVer := fl.Bool("version", false, "打印版本")
-	updateAPI := fl.String("update-api", os.Getenv("HUMANIZER_UPDATE_API"), "检查 App 更新用的 GitHub API 地址(开发/测试时指向假服务器)")
-	applyPlanPath := fl.String("apply-update", "", "内部使用:按更新计划替换并重启(Windows 更新助手)")
+	fl.Var(&engines, "engine", "Path to llama-server, as name=path, can repeat (for development and testing)")
+	baseURL := fl.String("base-url", envOr("WRITEFLOW_BASE_URL", os.Getenv("HF_ENDPOINT")), "Custom download source (instead of huggingface.co)")
+	noBrowser := fl.Bool("no-browser", os.Getenv("WRITEFLOW_NO_BROWSER") != "", "Don't open the browser automatically")
+	webDir := fl.String("web-dir", os.Getenv("WRITEFLOW_WEB_DIR"), "Read the web page from disk (for development; refresh to see changes)")
+	port := fl.Int("port", atoiOr(os.Getenv("WRITEFLOW_PORT"), 0), "Web page port (by default the fixed port from the configuration, so history isn't lost)")
+	idle := fl.Int("idle-exit", atoiOr(os.Getenv("WRITEFLOW_IDLE_EXIT"), -1), "Minutes after the page closes before exiting automatically; 0 = never exit, -1 = use the configuration")
+	serve := fl.Bool("serve", false, "Run the service in the foreground (used inside the macOS .app)")
+	showVer := fl.Bool("version", false, "Print the version")
+	updateAPI := fl.String("update-api", os.Getenv("WRITEFLOW_UPDATE_API"), "GitHub API address used to check for app updates (point at a fake server for development and testing)")
+	applyPlanPath := fl.String("apply-update", "", "Internal use: replace and restart according to the update plan (Windows update helper)")
 	fl.SetOutput(io.Discard)
 	var args []string
 	for _, a := range o.Args { // 老版本 Finder 会塞一个 -psn_0_xxx
@@ -69,7 +69,7 @@ func Main(o Options) int {
 		return 2
 	}
 	if *showVer {
-		fmt.Println("humanizer", o.Version)
+		fmt.Println("writeflow", o.Version)
 		return 0
 	}
 	if *applyPlanPath != "" {
@@ -79,19 +79,19 @@ func Main(o Options) int {
 	// 路径一律是绝对路径:引擎的工作目录不是这里。
 	sp := resolveStartPaths(*dataDirFlag)
 	dataDir := sp.DataDir
-	if e := os.Getenv("HUMANIZER_ENGINE"); e != "" && len(engines) == 0 {
+	if e := os.Getenv("WRITEFLOW_ENGINE"); e != "" && len(engines) == 0 {
 		engines = append(engines, e)
 	}
 
 	if err := os.MkdirAll(filepath.Join(dataDir, "logs"), 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, "无法创建数据目录:", err)
+		fmt.Fprintln(os.Stderr, "Couldn't create the data folder: ", err)
 		return 1
 	}
 
 	// 已经有一个在跑:直接打开它的页面
 	if inst, ok := runningInstance(dataDir); ok {
 		u := fmt.Sprintf("http://127.0.0.1:%d/", inst.Port)
-		fmt.Println("Humanizer 已在运行:", u)
+		fmt.Println("Writeflow is already running:", u)
 		if !*noBrowser {
 			_ = openURL(u)
 		}
@@ -113,15 +113,15 @@ func Main(o Options) int {
 		logw = io.MultiWriter(lf, os.Stderr)
 	}
 	logger := log.New(logw, "", log.LstdFlags)
-	logger.Printf("===== Humanizer %s 启动 (%s/%s) 数据目录 %s", o.Version, runtime.GOOS, runtime.GOARCH, dataDir)
+	logger.Printf("===== Writeflow %s start (%s/%s) data folder %s", o.Version, runtime.GOOS, runtime.GOARCH, dataDir)
 	if sp.Note != "" {
 		logger.Printf("%s", sp.Note)
 	}
-	logger.Printf("模型目录 %s(网页上的「存储位置」里可以改)", modelDirLog(sp.DataDir, sp.ModelDir))
+	logger.Printf("Model folder %s (can be changed under \"Storage location\" in the page)", modelDirLog(sp.DataDir, sp.ModelDir))
 
 	cfg, err := loadConfig(o.DefaultConfig, filepath.Join(dataDir, "config.json"))
 	if err != nil {
-		logger.Printf("配置错误:%v", err)
+		logger.Printf("Configuration error: %v", err)
 		return 1
 	}
 	if *baseURL != "" { // 开发/私有镜像:只用这一个下载源
@@ -145,14 +145,14 @@ func Main(o Options) int {
 	}
 	a.sys = detectSys()
 	a.backends = discoverBackends(engines, a.sys.GPU)
-	logger.Printf("内存 %.1f GB,CPU %q,GPU %+v,可用引擎 %d 个", a.sys.RAMGB, a.sys.CPU, a.sys.GPU, len(a.backends))
+	logger.Printf("Memory %.1f GB, CPU %q, GPU %+v, %d usable engines", a.sys.RAMGB, a.sys.CPU, a.sys.GPU, len(a.backends))
 	for _, b := range a.backends {
-		logger.Printf("  引擎 %-6s %s", b.Name, b.Path)
+		logger.Printf("  engine %-6s %s", b.Name, b.Path)
 	}
 	a.web = o.Web
 	if *webDir != "" {
 		a.web = os.DirFS(*webDir)
-		logger.Printf("网页从磁盘读取:%s", *webDir)
+		logger.Printf("Page read from disk: %s", *webDir)
 	}
 	switch {
 	case *idle >= 0:
@@ -165,13 +165,13 @@ func Main(o Options) int {
 	if b, err := os.ReadFile(filepath.Join(dataDir, "instance.json")); err == nil {
 		var old instanceInfo
 		if json.Unmarshal(b, &old) == nil && killStaleEngine(old.EnginePID) {
-			logger.Printf("清理了上次残留的引擎进程 %d", old.EnginePID)
+			logger.Printf("Cleaned up a leftover engine process %d", old.EnginePID)
 		}
 	}
 
-	if from := os.Getenv("HUMANIZER_UPDATED_FROM"); from != "" {
+	if from := os.Getenv("WRITEFLOW_UPDATED_FROM"); from != "" {
 		// 刚从 from 更新过来:旧进程刚放开端口,等它一会儿,保证还用原来的端口(浏览器里的历史按端口存)
-		logger.Printf("从 %s 更新而来", from)
+		logger.Printf("Updated from %s", from)
 		want := a.settings.Port
 		if *port > 0 {
 			want = *port
@@ -180,7 +180,7 @@ func Main(o Options) int {
 	}
 	ln, err := listenPreferred(*port, a.settings.Port, cfg.PreferredPort)
 	if err != nil {
-		logger.Printf("无法监听端口:%v", err)
+		logger.Printf("Couldn't listen on the port: %v", err)
 		return 1
 	}
 	a.port = ln.Addr().(*net.TCPAddr).Port
@@ -210,17 +210,17 @@ func Main(o Options) int {
 	srv := &http.Server{Handler: a.handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-			logger.Printf("HTTP 服务异常:%v", err)
+			logger.Printf("HTTP service error: %v", err)
 			cancel()
 		}
 	}()
-	logger.Printf("网页地址 %s", a.url)
-	fmt.Println("Humanizer:", a.url)
+	logger.Printf("Page address %s", a.url)
+	fmt.Println("Writeflow:", a.url)
 
 	a.boot()
 	if !*noBrowser {
 		if err := openURL(a.url); err != nil {
-			logger.Printf("打开浏览器失败:%v", err)
+			logger.Printf("Couldn't open the browser: %v", err)
 		}
 	}
 	go a.idleLoop(ctx)
@@ -243,7 +243,7 @@ func Main(o Options) int {
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	select {
 	case s := <-sig:
-		logger.Printf("收到信号 %v,退出", s)
+		logger.Printf("Received signal %v; exiting", s)
 	case <-ctx.Done():
 	}
 	cancel()
@@ -255,10 +255,10 @@ func Main(o Options) int {
 	after := a.afterExit
 	a.mu.Unlock()
 	if after != nil {
-		logger.Printf("服务已关闭,执行更新")
+		logger.Printf("Service closed; running the update")
 		after()
 	}
-	logger.Printf("已退出")
+	logger.Printf("Exited")
 	return 0
 }
 
@@ -332,7 +332,7 @@ func runningInstance(dataDir string) (instanceInfo, bool) {
 	var p struct {
 		App string `json:"app"`
 	}
-	if json.NewDecoder(resp.Body).Decode(&p) != nil || p.App != "humanizer" {
+	if json.NewDecoder(resp.Body).Decode(&p) != nil || p.App != "writeflow" {
 		return inst, false
 	}
 	return inst, true
@@ -355,7 +355,7 @@ func spawnDetached(args []string) int {
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
 	detach(cmd)
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintln(os.Stderr, "无法启动后台服务:", err)
+		fmt.Fprintln(os.Stderr, "Couldn't start the background service: ", err)
 		return 1
 	}
 	_ = cmd.Process.Release()

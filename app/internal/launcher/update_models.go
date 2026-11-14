@@ -70,7 +70,7 @@ func (u *updater) checkModels(ctx context.Context) error {
 		// 远端给了 sha、大小又和本地一样,才需要本地指纹(大小不同已经说明有新版)
 		if rf.SHA256 != "" && (rf.Size <= 0 || rf.Size == st.Size()) {
 			if _, err := u.localSHA(ctx, t.File, p); err != nil && ctx.Err() == nil {
-				u.logf("算 %s 的指纹失败:%v", t.File, err)
+				u.logf("Couldn't compute the fingerprint of %s: %v", t.File, err)
 			}
 		}
 	}
@@ -95,7 +95,7 @@ func (u *updater) localSHA(ctx context.Context, file, path string) (string, erro
 	}
 	if u.hashing[file] != nil {
 		u.mu.Unlock()
-		return "", errors.New("已经在算了")
+		return "", errors.New("Already computing")
 	}
 	prog := &progress{Stage: "hash", Total: st.Size()}
 	u.hashing[file] = prog
@@ -105,7 +105,7 @@ func (u *updater) localSHA(ctx context.Context, file, path string) (string, erro
 		delete(u.hashing, file)
 		u.mu.Unlock()
 	}()
-	u.logf("给本地模型 %s 算指纹(只算这一次)", file)
+	u.logf("Computing a fingerprint for local model %s (just this once)", file)
 	sum, err := hashFileProgress(ctx, path, func(done int64) {
 		u.mu.Lock()
 		prog.VerifyDone = done
@@ -172,11 +172,11 @@ func (u *updater) restoreJobs() {
 func (u *updater) startModelDownload(id string) error {
 	t, ok := u.cfg.tier(id)
 	if !ok {
-		return &PermanentError{Code: "bad_tier", Msg: "没有这个档位"}
+		return &PermanentError{Code: "bad_tier", Msg: "No such model size"}
 	}
 	cur := u.tierPath(t)
 	if !fileExists(cur) {
-		return &PermanentError{Code: "not_downloaded", Msg: "这个档位还没下载过,不用更新"}
+		return &PermanentError{Code: "not_downloaded", Msg: "This model size hasn't been downloaded, so there is nothing to update"}
 	}
 	u.mu.Lock()
 	if j := u.mjobs[id]; j != nil && (j.State == "downloading" || j.State == "waiting" || j.State == "installing") {
@@ -186,7 +186,7 @@ func (u *updater) startModelDownload(id string) error {
 	for tid, j := range u.mjobs {
 		if tid != id && (j.State == "downloading" || j.State == "waiting" || j.State == "installing") {
 			u.mu.Unlock()
-			return &PermanentError{Code: "busy", Msg: "另一个模型正在更新,等它完成再来"}
+			return &PermanentError{Code: "busy", Msg: "Another model is updating; try again when it finishes"}
 		}
 	}
 	rf, ok := u.st.Remote[t.File]
@@ -196,7 +196,7 @@ func (u *updater) startModelDownload(id string) error {
 	}
 	u.mu.Unlock()
 	if !ok || rf.Err != "" || (rf.SHA256 == "" && rf.Size <= 0) {
-		return &PermanentError{Code: "need_check", Msg: "还没查到 HF 上的新版本,请先检查更新"}
+		return &PermanentError{Code: "need_check", Msg: "No newer version found on Hugging Face yet; check for updates first"}
 	}
 	waitFetchDone(prev)
 	ctx, cancel := context.WithCancel(u.rootCtx)
@@ -213,7 +213,7 @@ func (u *updater) startModelDownload(id string) error {
 	u.mu.Lock()
 	u.mjobs[id] = job
 	u.mu.Unlock()
-	u.logf("开始下载模型更新 %s ← %s", t.File, d.URL)
+	u.logf("Downloading model update %s from %s", t.File, d.URL)
 	go u.runModelJob(ctx, job, t)
 	return nil
 }
@@ -232,7 +232,7 @@ func (u *updater) runModelJob(ctx context.Context, job *modelJob, t Tier) {
 			job.State = "paused"
 		}
 		u.mu.Unlock()
-		u.logf("模型更新已暂停(%s,已收到 %d 字节)", t.File, job.dl.Received.Load())
+		u.logf("Model update paused (%s, %d bytes received)", t.File, job.dl.Received.Load())
 		return
 	case err != nil:
 		code := "network"
@@ -243,12 +243,12 @@ func (u *updater) runModelJob(ctx context.Context, job *modelJob, t Tier) {
 		job.State = "error"
 		job.Err = &errInfo{Kind: "download", Code: code, Message: err.Error()}
 		u.mu.Unlock()
-		u.logf("模型更新下载失败:%v", err)
+		u.logf("Model update download failed: %v", err)
 		return
 	}
 	job.State = "waiting"
 	u.mu.Unlock()
-	u.logf("模型更新已下好并校验通过:%s", job.dl.Dest)
+	u.logf("Model update downloaded and verified: %s", job.dl.Dest)
 	u.installModel(ctx, job, t, job.dl.Dest, job.dl.SHA)
 }
 
@@ -269,7 +269,7 @@ func (u *updater) installModel(ctx context.Context, job *modelJob, t Tier, newPa
 		job.State = "error"
 		job.Err = &errInfo{Kind: "install", Code: "install_failed", Message: err.Error()}
 		u.mu.Unlock()
-		u.logf("模型更新替换失败:%v", err)
+		u.logf("Model update replacement failed: %v", err)
 		return
 	}
 	job.State = "done"
@@ -278,7 +278,7 @@ func (u *updater) installModel(ctx context.Context, job *modelJob, t Tier, newPa
 		sum, _ = hashFileProgress(ctx, cur, nil)
 	}
 	u.recordFP(t.File, cur, sum)
-	u.logf("模型 %s 已更新", t.File)
+	u.logf("Model %s updated", t.File)
 }
 
 // replaceModelFile 用 newPath 换掉 cur,旧文件先改名成 .bak:
@@ -290,7 +290,7 @@ func replaceModelFile(ctx context.Context, eng engineCtl, t Tier, cur, newPath s
 	bak := cur + ".bak"
 	active := eng.usesTier(t.ID)
 	if active {
-		logf("引擎正在用 %s,先停下来再换文件", t.File)
+		logf("The engine is using %s; stop it before swapping the file", t.File)
 		eng.stop()
 	}
 	restart := func() {
@@ -301,14 +301,14 @@ func replaceModelFile(ctx context.Context, eng engineCtl, t Tier, cur, newPath s
 	_ = os.Remove(bak)
 	if err := os.Rename(cur, bak); err != nil {
 		restart()
-		return fmt.Errorf("没法挪开旧模型文件:%w", err)
+		return fmt.Errorf("Couldn't move the old model file aside: %w", err)
 	}
 	if err := os.Rename(newPath, cur); err != nil {
 		if rerr := os.Rename(bak, cur); rerr != nil {
-			logf("严重:恢复旧模型也失败了:%v", rerr)
+			logf("Serious: restoring the old model failed too: %v", rerr)
 		}
 		restart()
-		return fmt.Errorf("没法放入新模型文件:%w", err)
+		return fmt.Errorf("Couldn't put the new model file in place: %w", err)
 	}
 	if !active {
 		_ = os.Remove(bak)
@@ -316,20 +316,20 @@ func replaceModelFile(ctx context.Context, eng engineCtl, t Tier, cur, newPath s
 	}
 	eng.start(t)
 	if err := eng.waitSettled(ctx); err != nil {
-		logf("新模型没能启动(%v),换回旧模型", err)
+		logf("The new model couldn't start (%v); switching back to the old model", err)
 		eng.stop()
 		bad := cur + ".rejected"
 		_ = os.Remove(bad)
 		if rerr := os.Rename(cur, bad); rerr != nil {
-			logf("挪开新模型失败:%v", rerr)
+			logf("Couldn't move the new model aside: %v", rerr)
 		}
 		if rerr := os.Rename(bak, cur); rerr != nil {
-			logf("严重:换回旧模型失败:%v", rerr)
-			return fmt.Errorf("新模型起不来,换回旧模型也失败了:%v", rerr)
+			logf("Serious: switching back to the old model failed: %v", rerr)
+			return fmt.Errorf("The new model won't start, and switching back to the old model failed too: %v", rerr)
 		}
 		_ = os.Remove(bad)
 		eng.start(t)
-		return errors.New("新模型没能启动,已换回原来的模型")
+		return errors.New("The new model couldn't start; switched back to the previous model")
 	}
 	_ = os.Remove(bak)
 	return nil

@@ -42,10 +42,10 @@ EOF
 go build -o "$OUT/hz-broken" "$W/broken.go"
 
 echo "· 造 .app 和 dmg"
-BUNDLE="$W/Applications/Humanizer.app"
+BUNDLE="$W/Applications/Writeflow.app"
 make_bundle "$BUNDLE" 0.3.1 "$OUT/hz-0.3.1" "$OUT/fakellama"
-make_bundle "$W/new/Humanizer.app" 0.9.0 "$OUT/hz-0.9.0" "$OUT/fakellama"
-make_dmg "$W/new/Humanizer.app" "$W/gh/Humanizer-0.9.0-macos-arm64.dmg"
+make_bundle "$W/new/Writeflow.app" 0.9.0 "$OUT/hz-0.9.0" "$OUT/fakellama"
+make_dmg "$W/new/Writeflow.app" "$W/gh/Writeflow-0.9.0-macos-arm64.dmg"
 
 PORT=47740 GH=127.0.0.1:9291 HF=127.0.0.1:9292
 "$OUT/fakegh" -addr $GH -dir "$W/gh" > "$W/fakegh.log" 2>&1 &
@@ -53,7 +53,7 @@ GHPID=$!
 "$OUT/fakehf" -addr $HF -size 16 -rate 4 > "$W/fakehf.log" 2>&1 &
 HFPID=$!
 cleanup() {
-  curl -s -m 2 -X POST -H 'X-Humanizer: 1' "http://127.0.0.1:$PORT/app/quit" >/dev/null 2>&1 || true
+  curl -s -m 2 -X POST -H 'X-Writeflow: 1' "http://127.0.0.1:$PORT/app/quit" >/dev/null 2>&1 || true
   kill $GHPID $HFPID 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -64,7 +64,7 @@ bad()  { echo "  ✗ $1"; FAILN=$((FAILN+1)); }
 check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 st()   { curl -s -m 2 "http://127.0.0.1:$PORT/app/status"; }
 upd()  { curl -s -m 3 "http://127.0.0.1:$PORT/app/update"; }
-post() { local body="${2:-}"; [ -n "$body" ] || body='{}'; curl -s -m 10 -X POST -H 'X-Humanizer: 1' -H 'Content-Type: application/json' "http://127.0.0.1:$PORT$1" -d "$body"; }
+post() { local body="${2:-}"; [ -n "$body" ] || body='{}'; curl -s -m 10 -X POST -H 'X-Writeflow: 1' -H 'Content-Type: application/json' "http://127.0.0.1:$PORT$1" -d "$body"; }
 field() { python3 -c "import json,sys
 try: d=json.load(sys.stdin)
 except Exception: d=None
@@ -81,10 +81,10 @@ model_state() { upd | field '[m["state"] for m in d["models"] if m["tier"]=="q8"
 printf 'GGUF' > "$W/data/models/humanizer-12b-Q8_0.gguf"
 echo '{"tier":"q8"}' > "$W/data/settings.json"
 export FAKE_FIXTURES="$APP/devtools/fixtures/samples.json" FAKE_LOAD_MS=300 FAKE_TOKEN_MS=2
-export HUMANIZER_UPDATE_DELAY_SEC=3600 HUMANIZER_UPDATE_READY_SEC=12   # 不让后台自动检查插进来;回滚测试别等 90 秒
+export WRITEFLOW_UPDATE_DELAY_SEC=3600 WRITEFLOW_UPDATE_READY_SEC=12   # 不让后台自动检查插进来;回滚测试别等 90 秒
 
 echo "1. 从 .app 启动旧版本 0.3.1"
-"$BUNDLE/Contents/MacOS/Humanizer" --data-dir "$W/data" --base-url "http://$HF" --update-api "http://$GH" --no-browser --port $PORT --idle-exit 0
+"$BUNDLE/Contents/MacOS/Writeflow" --data-dir "$W/data" --base-url "http://$HF" --update-api "http://$GH" --no-browser --port $PORT --idle-exit 0
 wait_until "就绪" 20 '[ "$(st | field "d[\"phase\"]")" = ready ]' && ok "旧版本就绪" || bad "旧版本就绪"
 check "运行的是 0.3.1" '[ "$(ping_ver)" = 0.3.1 ]'
 
@@ -107,7 +107,7 @@ import json,sys; c=json.load(sys.stdin)
 draft=json.load(open("devtools/fixtures/samples.json"))["samples"][0]["draft"]
 b=dict(c["sampling"]); b.update(prompt=c["instr"]+"\n\n"+draft.strip()+c["sep"], n_predict=200, stream=True)
 print(json.dumps(b))')
-SSE=$(curl -sN -m 20 -X POST -H 'X-Humanizer: 1' "http://127.0.0.1:$PORT/api/completion" --data "$BODY")
+SSE=$(curl -sN -m 20 -X POST -H 'X-Writeflow: 1' "http://127.0.0.1:$PORT/api/completion" --data "$BODY")
 check "下载期间改写正常(用的是旧模型)" '[ "$(echo "$SSE" | grep -c "^data: ")" -gt 20 ]'
 wait_until "模型更新完成" 30 '[ "$(model_state)" = done ]' && ok "模型下载、校验、替换完成" || bad "模型下载、校验、替换完成"
 check "模型文件换成了新的(16 MiB)" '[ "$(stat -f %z "$W/data/models/humanizer-12b-Q8_0.gguf")" = 16777216 ]'
@@ -120,13 +120,13 @@ check "确认后显示已是最新" '[ "$(model_state)" = current ]'
 echo "4. App 更新:下载 → 校验 → 替换 → 重启到 0.9.0"
 post /app/update/app-download >/dev/null
 wait_until "下载完" 20 '[ "$(upd | field "d[\"app\"][\"state\"]")" = ready ]' && ok "安装包下载并校验通过" || bad "安装包下载并校验通过"
-check "fakegh 上的下载走了 302 跳转" 'grep -q "GET /dl/app-v0.9.0/Humanizer-0.9.0-macos-arm64.dmg" "$W/fakegh.log" && grep -q "GET /blob/Humanizer-0.9.0" "$W/fakegh.log"'
+check "fakegh 上的下载走了 302 跳转" 'grep -q "GET /dl/app-v0.9.0/Writeflow-0.9.0-macos-arm64.dmg" "$W/fakegh.log" && grep -q "GET /blob/Writeflow-0.9.0" "$W/fakegh.log"'
 OLDPID=$(curl -s "http://127.0.0.1:$PORT/app/ping" | field 'd["pid"]')
 post /app/update/app-apply >/dev/null
 wait_until "新版本起来" 60 '[ "$(ping_ver)" = 0.9.0 ]' && ok "重启到了 0.9.0(端口没变)" || bad "重启到了 0.9.0(端口没变)"
 wait_until "旧进程收尾" 10 '! kill -0 $OLDPID 2>/dev/null' && ok "负责重启的旧进程确认后退出了" || bad "负责重启的旧进程确认后退出了"
 check ".app 里的 Info.plist 是 0.9.0" '[ "$(plist_ver)" = 0.9.0 ]'
-check "备份和暂存目录都清掉了" '[ ! -e "$W/Applications/.Humanizer.app.backup" ] && [ ! -e "$W/Applications/.Humanizer.app.update" ]'
+check "备份和暂存目录都清掉了" '[ ! -e "$W/Applications/.Writeflow.app.backup" ] && [ ! -e "$W/Applications/.Writeflow.app.update" ]'
 check "签名完整" 'codesign --verify --deep --strict "$BUNDLE"'
 check "结果:成功 0.3.1 → 0.9.0" '[ "$(upd | field "(d[\"result\"][\"ok\"], d[\"result\"][\"from\"], d[\"result\"][\"to\"])")" = "(True, '"'"'0.3.1'"'"', '"'"'0.9.0'"'"')" ]'
 wait_until "新版本引擎就绪" 20 '[ "$(st | field "d[\"phase\"]")" = ready ]' && ok "新版本里模型照常装载" || bad "新版本里模型照常装载"
@@ -134,8 +134,8 @@ check "新版本已是最新" '[ "$(upd | field "d[\"app\"][\"available\"]")" = 
 post /app/update/ack >/dev/null
 
 echo "5. 新版本起不来 → 自动换回旧版本"
-make_bundle "$W/new/Humanizer.app" 0.9.1 "$OUT/hz-broken" "$OUT/fakellama"
-make_dmg "$W/new/Humanizer.app" "$W/gh/Humanizer-0.9.1-macos-arm64.dmg"
+make_bundle "$W/new/Writeflow.app" 0.9.1 "$OUT/hz-broken" "$OUT/fakellama"
+make_dmg "$W/new/Writeflow.app" "$W/gh/Writeflow-0.9.1-macos-arm64.dmg"
 post /app/update/check >/dev/null
 wait_until "发现 0.9.1" 15 '[ "$(upd | field "d[\"app\"][\"latest\"][\"version\"]")" = 0.9.1 ]' && ok "发现 0.9.1" || bad "发现 0.9.1"
 post /app/update/app-download >/dev/null
@@ -143,15 +143,15 @@ wait_until "下载完" 20 '[ "$(upd | field "d[\"app\"][\"state\"]")" = ready ]'
 post /app/update/app-apply >/dev/null
 wait_until "回滚完成" 60 '[ "$(upd | field "d[\"result\"][\"ok\"]")" = False ]' && ok "记录了更新失败" || bad "记录了更新失败"
 check "回到 0.9.0 并在原端口运行" '[ "$(ping_ver)" = 0.9.0 ]'
-check ".app 换回了 0.9.0" '[ "$(plist_ver)" = 0.9.0 ] && [ -x "$BUNDLE/Contents/MacOS/Humanizer" ]'
+check ".app 换回了 0.9.0" '[ "$(plist_ver)" = 0.9.0 ] && [ -x "$BUNDLE/Contents/MacOS/Writeflow" ]'
 check "签名完整" 'codesign --verify --deep --strict "$BUNDLE"'
-check "没有留下备份/失败目录" '[ -z "$(ls -A "$W/Applications" | grep -v "^Humanizer.app$")" ]'
+check "没有留下备份/失败目录" '[ -z "$(ls -A "$W/Applications" | grep -v "^Writeflow.app$")" ]'
 check "失败原因写清楚了" 'upd | field "d[\"result\"][\"error\"]" | grep -q "0.9.1"'
 wait_until "旧版本引擎就绪" 20 '[ "$(st | field "d[\"phase\"]")" = ready ]' && ok "回滚后可以照常改写" || bad "回滚后可以照常改写"
 
 echo "6. 退出"
 post /app/quit >/dev/null; sleep 1.5
-check "进程都退了" '! pgrep -f "$W/Applications/Humanizer.app/Contents/MacOS/Humanizer" >/dev/null && ! pgrep -f "$W/Applications/Humanizer.app/Contents/Resources/engine" >/dev/null'
+check "进程都退了" '! pgrep -f "$W/Applications/Writeflow.app/Contents/MacOS/Writeflow" >/dev/null && ! pgrep -f "$W/Applications/Writeflow.app/Contents/Resources/engine" >/dev/null'
 
 echo
 echo "通过 $PASS 项,失败 $FAILN 项"

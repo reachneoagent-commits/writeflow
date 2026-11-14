@@ -76,14 +76,14 @@ type Config struct {
 func loadConfig(def []byte, overridePath string) (Config, error) {
 	var c Config
 	if err := json.Unmarshal(def, &c); err != nil {
-		return c, fmt.Errorf("内置配置损坏: %w", err)
+		return c, fmt.Errorf("The built-in configuration is damaged: %w", err)
 	}
 	if overridePath != "" {
 		b, err := os.ReadFile(overridePath)
 		switch {
 		case err == nil:
 			if err := json.Unmarshal(b, &c); err != nil {
-				return c, fmt.Errorf("%s 不是合法 JSON: %w", overridePath, err)
+				return c, fmt.Errorf("%s is not valid JSON: %w", overridePath, err)
 			}
 		case !errors.Is(err, os.ErrNotExist):
 			return c, err
@@ -94,31 +94,31 @@ func loadConfig(def []byte, overridePath string) (Config, error) {
 
 func (c *Config) validate() error {
 	if c.Repo == "" || c.Revision == "" {
-		return errors.New("配置缺少 repo/revision")
+		return errors.New("The configuration is missing repo/revision")
 	}
 	if len(c.Tiers) == 0 {
-		return errors.New("配置里没有任何模型档位")
+		return errors.New("The configuration has no model sizes")
 	}
 	seen := map[string]bool{}
 	for _, t := range c.Tiers {
 		if t.ID == "" || t.File == "" {
-			return fmt.Errorf("档位缺少 id 或 file: %+v", t)
+			return fmt.Errorf("A model size is missing id or file: %+v", t)
 		}
 		if seen[t.ID] {
-			return fmt.Errorf("档位 id 重复: %s", t.ID)
+			return fmt.Errorf("Duplicate model size id: %s", t.ID)
 		}
 		if strings.Contains(t.File, "..") || strings.HasPrefix(t.File, "/") || strings.Contains(t.File, `\`) {
-			return fmt.Errorf("档位文件名不合法: %s", t.File)
+			return fmt.Errorf("Invalid model file name: %s", t.File)
 		}
 		seen[t.ID] = true
 	}
 	for _, r := range c.TierByRAM {
 		if !seen[r.Tier] {
-			return fmt.Errorf("tier_by_ram 指向不存在的档位: %s", r.Tier)
+			return fmt.Errorf("tier_by_ram points to a model size that doesn't exist: %s", r.Tier)
 		}
 	}
 	if len(c.Endpoints) == 0 {
-		return errors.New("配置里没有下载源")
+		return errors.New("The configuration has no download source")
 	}
 	if c.Engine.CtxSize <= 0 {
 		c.Engine.CtxSize = 8192

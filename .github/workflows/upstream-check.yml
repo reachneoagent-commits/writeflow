@@ -1,0 +1,70 @@
+name: Upstream check
+
+# Once a week: look at every project Writeflow builds on (see scripts/wf_upstream_report.py) and, if
+# anything changed since we last reviewed it, open or update an issue. For sgaofen's app we also try
+# a dry-run merge and say whether it would be clean. Nothing here changes Writeflow or ships to users:
+# a person reads the report, merges and tests, then approves it.
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build the report
+        id: report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python3 scripts/wf_upstream_report.py > report.md
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+      - name: Dry-run merge of sgaofen's app
+        run: |
+          git config user.email ci@example.invalid
+          git config user.name ci
+          git config merge.ours.driver true
+          git remote add upstream https://github.com/sgaofen/humanizer-local-model.git
+          git fetch --quiet upstream main
+          BEHIND=$(git rev-list --count HEAD..upstream/main)
+          {
+            echo
+            echo "## Dry-run merge of sgaofen/humanizer-local-model"
+            if [ "$BEHIND" = "0" ]; then
+              echo "Already up to date with upstream."
+            elif git merge --no-commit --no-ff upstream/main >/dev/null 2>&1; then
+              echo "$BEHIND new upstream commits. **Would merge cleanly.**"
+            else
+              echo "$BEHIND new upstream commits. **Conflicts in:**"
+              git diff --name-only --diff-filter=U | sed 's/^/- /'
+            fi
+          } >> report.md
+          git merge --abort 2>/dev/null || true
+      - name: Open or update the review issue
+        if: steps.report.outputs.code == '10'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LABEL="upstream-review"
+          gh label create "$LABEL" --color E56458 --description "Upstream changes to review" 2>/dev/null || true
+          EXISTING=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file report.md
+          else
+            gh issue create --title "Upstream changes to review" --label "$LABEL" --body-file report.md
+          fi
+      - name: Fail if the report itself broke
+        if: steps.report.outputs.code != '0' && steps.report.outputs.code != '10'
+        run: |
+          echo "The report script failed with exit code ${{ steps.report.outputs.code }}"
+          exit 1

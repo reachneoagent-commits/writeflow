@@ -210,7 +210,7 @@ for (const s of fx.samples) {
     const tokens=await countTokens('draft',{timeout:15,signal:doneCtl.signal});
     doneCtl.abort();
     await new Promise(resolve=>setTimeout(resolve,25));
-    ok(tokens===3 && sent.path==='/api/tokenize' && sent.headers['X-Humanizer']==='1' && JSON.parse(sent.body).content==='draft','Successful requests preserve payload and headers');
+    ok(tokens===3 && sent.path==='/api/tokenize' && sent.headers['X-Writeflow']==='1' && JSON.parse(sent.body).content==='draft','Successful requests preserve payload and headers');
     ok(!sent.signal.aborted,'Completed requests release both their caller listener and deadline timer');
     globalThis.fetch=async()=>({ok:false,status:409,json:async()=>({error:{message:'no model'}})});
     let message='';try {await postJSON('/app/setup',{});} catch(e) {message=e.message;}
@@ -394,7 +394,7 @@ for (const s of fx.samples) {
     globalThis.fetch = sse([': keep-alive\n\n', chunk(''), chunk('Hel'), 'data: {"choices":[{"index":0,"delta":{"content":"lo"},"finish_reason":null}]}\r\n\r\n', chunk(null, 'stop'), 'data: [DONE]\n\n']);
     let evs = await collect(streamChat({ messages: [{ role: 'user', content: 'x' }] }));
     ok(evs.map((e) => e.content).join('') === 'Hello' && evs.at(-1).stop === true && evs.at(-1).stop_type === 'eos' && evs.at(-1).tokens_predicted === 2, 'streamChat:内容拼对、finish_reason=stop → eos');
-    ok(sse.last.path === '/api/v1/chat/completions' && sse.last.opts.headers['X-Humanizer'] === '1' && JSON.parse(sse.last.opts.body).messages.length === 1, 'streamChat:走启动器反代、带 X-Humanizer 头、请求体原样发出');
+    ok(sse.last.path === '/api/v1/chat/completions' && sse.last.opts.headers['X-Writeflow'] === '1' && JSON.parse(sse.last.opts.body).messages.length === 1, 'streamChat:走启动器反代、带 X-Writeflow 头、请求体原样发出');
     globalThis.fetch = sse([chunk('a'), chunk('b', 'length')]);
     evs = await collect(streamChat({}));
     ok(evs.at(-1).stop_type === 'limit', 'streamChat:finish_reason=length → limit(截断,不采用)');
@@ -424,19 +424,19 @@ for (const s of fx.samples) {
 
 // 15. 存储位置:默认目录、尾斜杠、是否自定义过
 {
-  const win = { data_dir: 'C:\\Users\\B\\AppData\\Local\\Humanizer', default_data_dir: 'C:\\Users\\B\\AppData\\Local\\Humanizer', model_dir: 'C:\\Users\\B\\AppData\\Local\\Humanizer\\models' };
-  const mac = { data_dir: '/Users/b/Library/Application Support/Humanizer', default_data_dir: '/Users/b/Library/Application Support/Humanizer', model_dir: '/Users/b/Library/Application Support/Humanizer/models' };
-  ok(modelDirDefault(win) === 'C:\\Users\\B\\AppData\\Local\\Humanizer\\models', 'Windows 默认模型目录');
-  ok(modelDirDefault(mac) === '/Users/b/Library/Application Support/Humanizer/models', 'macOS 默认模型目录');
+  const win = { data_dir: 'C:\\Users\\B\\AppData\\Local\\Writeflow', default_data_dir: 'C:\\Users\\B\\AppData\\Local\\Writeflow', model_dir: 'C:\\Users\\B\\AppData\\Local\\Writeflow\\models' };
+  const mac = { data_dir: '/Users/b/Library/Application Support/Writeflow', default_data_dir: '/Users/b/Library/Application Support/Writeflow', model_dir: '/Users/b/Library/Application Support/Writeflow/models' };
+  ok(modelDirDefault(win) === 'C:\\Users\\B\\AppData\\Local\\Writeflow\\models', 'Windows 默认模型目录');
+  ok(modelDirDefault(mac) === '/Users/b/Library/Application Support/Writeflow/models', 'macOS 默认模型目录');
   ok(!customPaths(win) && !customPaths(mac), '没改过时不算自定义');
   ok(customPaths({ ...win, model_dir: 'D:\\models' }), '改了模型目录');
-  ok(customPaths({ ...win, data_dir: 'D:\\Humanizer' }), '改了运行目录');
+  ok(customPaths({ ...win, data_dir: 'D:\\Writeflow' }), '改了运行目录');
   // 运行目录被启动参数钉死时,那个"不一样"不算用户改的
   ok(!customPaths({ ...win, data_dir_locked: true }), '钉死的运行目录不算自定义');
-  ok(modelDirDefault({ ...win, data_dir_locked: true }) === 'C:\\Users\\B\\AppData\\Local\\Humanizer\\models', '钉死时模型目录以它为基准');
+  ok(modelDirDefault({ ...win, data_dir_locked: true }) === 'C:\\Users\\B\\AppData\\Local\\Writeflow\\models', '钉死时模型目录以它为基准');
   // 尾斜杠、大小写不算改动
-  ok(!customPaths({ ...win, model_dir: 'c:\\users\\b\\appdata\\local\\humanizer\\models\\' }), '尾斜杠和大小写不算改动');
-  ok(!customPaths({ ...mac, model_dir: '/Users/b/Library/Application Support/Humanizer/models/' }), 'macOS 尾斜杠不算改动');
+  ok(!customPaths({ ...win, model_dir: 'c:\\users\\b\\appdata\\local\\writeflow\\models\\' }), '尾斜杠和大小写不算改动');
+  ok(!customPaths({ ...mac, model_dir: '/Users/b/Library/Application Support/Writeflow/models/' }), 'macOS 尾斜杠不算改动');
   ok(sameDir('D:\\a', 'D:\\a\\') && sameDir('/x/y/', '/x/y') && !sameDir('D:\\a', 'D:\\b') && !sameDir('', 'D:\\a'),
     '目录比较忽略尾斜杠、认得出不同目录');
   // 摘要上那一句:三种状态
@@ -446,20 +446,22 @@ for (const s of fx.samples) {
   ok(pathsHintKey({ ...win, model_dir: 'D:\\models' }) === 'paths.hintCustom', '改了模型目录 → 自定义');
 }
 
-// 16. 文案:中英两份键一一对应,页面上用到的键都有(0.3.4 合并时英文少过 menu.paths / menu.changePaths)
+// 16. Interface text (English only): every key used by index.html exists, and no Chinese text is left in the interface
 {
   const src = readFileSync(new URL('../web/js/i18n.js', import.meta.url), 'utf8');
-  const zhAt = src.indexOf('\n  zh: {'), enAt = src.indexOf('\n  en: {');
   const keys = (part) => new Set([...part.matchAll(/^\s+'([\w.]+)':/gm)].map((m) => m[1]));
-  const zh = keys(src.slice(zhAt, enAt)), en = keys(src.slice(enAt));
-  const onlyZh = [...zh].filter((k) => !en.has(k)), onlyEn = [...en].filter((k) => !zh.has(k));
-  ok(zh.size > 100 && !onlyZh.length && !onlyEn.length, `中英文案键一致(${zh.size} 个)${onlyZh.length ? ' 缺英文:' + onlyZh.join(',') : ''}${onlyEn.length ? ' 缺中文:' + onlyEn.join(',') : ''}`);
+  const en = keys(src);
+  const cjk = /[\u3400-\u9fff]/;
+  ok(en.size > 100, `interface text has ${en.size} keys`);
+  ok(!cjk.test(src.replace(/\/\/[^\n]*/g, '')), 'no Chinese text left in js/i18n.js');
   const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+  ok(!cjk.test(html.replace(/<!--[\s\S]*?-->/g, '')), 'no Chinese text left in index.html');
   const used = [...html.matchAll(/data-i18n="([\w.]+)"/g)].map((m) => m[1])
     .concat([...html.matchAll(/data-i18n-attr="([^"]+)"/g)].flatMap((m) => m[1].split(';').map((x) => x.split(':')[1])));
-  const missing = [...new Set(used)].filter((k) => !zh.has(k) || !en.has(k));
-  ok(!missing.length, `index.html 用到的文案键都有中英两份${missing.length ? ':缺 ' + missing.join(',') : ''}`);
+  const missing = [...new Set(used)].filter((k) => !en.has(k));
+  ok(!missing.length, `every text key used in index.html exists${missing.length ? ': missing ' + missing.join(',') : ''}`);
 }
+
 
 if (fails) { console.error(`\n${fails} 项失败`); process.exit(1); }
 console.log('\n全部通过');

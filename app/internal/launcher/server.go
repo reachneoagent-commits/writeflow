@@ -47,7 +47,7 @@ func (a *App) handler() http.Handler {
 // guard 挡掉三类东西:
 //  1. Host 不是 127.0.0.1/localhost(防 DNS rebinding);
 //  2. 跨站页面带着 Origin 来调接口;
-//  3. 没带 X-Humanizer 头的写操作(自定义头会触发 CORS 预检,别的网站发不出来)。
+//  3. 没带 X-Writeflow 头的写操作(自定义头会触发 CORS 预检,别的网站发不出来)。
 func (a *App) guard(next http.Handler) http.Handler {
 	okHost := map[string]bool{
 		fmt.Sprintf("127.0.0.1:%d", a.port): true,
@@ -67,8 +67,8 @@ func (a *App) guard(next http.Handler) http.Handler {
 			return
 		}
 		isAPI := strings.HasPrefix(r.URL.Path, "/app/") || strings.HasPrefix(r.URL.Path, "/api/")
-		if isAPI && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-Humanizer") != "1" {
-			http.Error(w, "missing X-Humanizer header", http.StatusForbidden)
+		if isAPI && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-Writeflow") != "1" {
+			http.Error(w, "missing X-Writeflow header", http.StatusForbidden)
 			return
 		}
 		h := w.Header()
@@ -104,7 +104,7 @@ func (a *App) apiProxy() http.Handler {
 			pr.Out.Header.Del("Origin")
 			pr.Out.Header.Del("Referer")
 			pr.Out.Header.Del("Cookie")
-			pr.Out.Header.Del("X-Humanizer")
+			pr.Out.Header.Del("X-Writeflow")
 			pr.Out.Header.Del("X-Engine-Port")
 			pr.Out.Header.Set("Authorization", "Bearer "+a.apiKey)
 		},
@@ -113,7 +113,7 @@ func (a *App) apiProxy() http.Handler {
 			if r.Context().Err() != nil { // 用户点了停止,浏览器断开
 				return
 			}
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": map[string]any{"code": 502, "message": "引擎连接失败:" + err.Error()}})
+			writeJSON(w, http.StatusBadGateway, map[string]any{"error": map[string]any{"code": 502, "message": "Couldn't connect to the engine: " + err.Error()}})
 		},
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +143,7 @@ func (a *App) apiProxy() http.Handler {
 		ready := a.phase == phaseReady && p != nil && p.alive()
 		a.mu.Unlock()
 		if !ready {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": map[string]any{"code": 503, "message": "模型还没准备好"}})
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": map[string]any{"code": 503, "message": "The model isn't ready yet"}})
 			return
 		}
 		r.Header.Set("X-Engine-Port", strconv.Itoa(p.port))
@@ -159,7 +159,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 func (a *App) handlePing(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"app": "humanizer", "version": a.opts.Version, "pid": os.Getpid()})
+	writeJSON(w, 200, map[string]any{"app": "writeflow", "version": a.opts.Version, "pid": os.Getpid()})
 }
 
 type tierStatus struct {
@@ -209,7 +209,7 @@ type statusResp struct {
 func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 	dataDir, modelsDir := a.pathsNow()
 	s := statusResp{
-		App: "humanizer", Version: a.opts.Version, Sys: a.sys,
+		App: "writeflow", Version: a.opts.Version, Sys: a.sys,
 		Recommended: a.cfg.recommendTier(a.sys.RAMGB),
 		Endpoints:   a.cfg.Endpoints,
 		DataDir:     dataDir, ModelDir: modelsDir, DefaultDataDir: defaultDataDir(), DataDirLocked: a.dataDirLocked,
@@ -319,7 +319,7 @@ func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
 	s := a.settings
 	a.mu.Unlock()
 	if err := saveSettings(a.settingsPath(), s); err != nil {
-		a.logf("保存设置失败:%v", err)
+		a.logf("Couldn't save settings: %v", err)
 	}
 	a.stopEngine()
 	if fileExists(a.modelPath(t)) {

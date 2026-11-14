@@ -65,7 +65,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !U
 async function post(action, body) {
   try {
     const r = await fetch('/app/update/' + action, {
-      method: 'POST', headers: { 'X-Humanizer': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}),
+      method: 'POST', headers: { 'X-Writeflow': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}),
     });
     let d = null;
     try { d = await r.json(); } catch { /* 空响应 */ }

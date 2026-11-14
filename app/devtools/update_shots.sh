@@ -23,7 +23,7 @@ GH=127.0.0.1:9295 HF=127.0.0.1:9296 HF2=127.0.0.1:9297
 A=47750 B=47751 C=47752
 PIDS=()
 cleanup() {
-  for p in $A $B $C; do curl -s -m 2 -X POST -H 'X-Humanizer: 1' "http://127.0.0.1:$p/app/quit" >/dev/null 2>&1 || true; done
+  for p in $A $B $C; do curl -s -m 2 -X POST -H 'X-Writeflow: 1' "http://127.0.0.1:$p/app/quit" >/dev/null 2>&1 || true; done
   sleep 1
   for p in "${PIDS[@]:-}"; do [ -n "$p" ] && kill "$p" 2>/dev/null || true; done
 }
@@ -36,10 +36,10 @@ wait_upd() { # 端口 python条件
   done
   echo "等不到 $1: $2" >&2; return 1
 }
-post() { local b="${3:-}"; [ -n "$b" ] || b='{}'; curl -s -m 5 -X POST -H 'X-Humanizer: 1' -H 'Content-Type: application/json' "http://127.0.0.1:$1$2" -d "$b" >/dev/null; }
+post() { local b="${3:-}"; [ -n "$b" ] || b='{}'; curl -s -m 5 -X POST -H 'X-Writeflow: 1' -H 'Content-Type: application/json' "http://127.0.0.1:$1$2" -d "$b" >/dev/null; }
 
 # 假发布:0.3.2 的 dmg(16 MB,内容是假的,只用来演示下载进度;真正的替换流程见 update_e2e.sh)
-fake_dmg "$W/gh/Humanizer-0.3.2-macos-arm64.dmg" 16
+fake_dmg "$W/gh/Writeflow-0.3.2-macos-arm64.dmg" 16
 "$OUT/fakegh" -addr $GH -dir "$W/gh" -rate 1.2 > "$W/fakegh.log" 2>&1 & PIDS+=($!)
 # 假 HF:Q4_K_M 在 HF 上「更新过」(内容换了一份);另起一个没改过的,用来生成本地的「旧」文件
 "$OUT/fakehf" -addr $HF -size 48 -rate 2.5 -changed humanizer-12b-Q4_K_M.gguf > "$W/fakehf.log" 2>&1 & PIDS+=($!)
@@ -53,12 +53,12 @@ mkmodels() { # 数据目录:Q8_0 和 HF 上一样(已是最新),Q4_K_M 是旧的
   echo '{"tier":"q8"}' > "$1/settings.json"
 }
 
-export FAKE_FIXTURES="$APP/devtools/fixtures/samples.json" FAKE_LOAD_MS=300 FAKE_TOKEN_MS=4 HUMANIZER_UPDATE_DELAY_SEC=2
+export FAKE_FIXTURES="$APP/devtools/fixtures/samples.json" FAKE_LOAD_MS=300 FAKE_TOKEN_MS=4 WRITEFLOW_UPDATE_DELAY_SEC=2
 
 # A:从 .app 运行的 0.3.1(能原地更新),有 App 新版本和一个模型新版本
-make_bundle "$W/Applications/Humanizer.app" 0.3.1 "$OUT/hz-0.3.1" "$OUT/fakellama"
+make_bundle "$W/Applications/Writeflow.app" 0.3.1 "$OUT/hz-0.3.1" "$OUT/fakellama"
 mkmodels "$W/a"
-"$W/Applications/Humanizer.app/Contents/MacOS/Humanizer" --data-dir "$W/a" --base-url "http://$HF" --update-api "http://$GH" --no-browser --port $A --idle-exit 0
+"$W/Applications/Writeflow.app/Contents/MacOS/Writeflow" --data-dir "$W/a" --base-url "http://$HF" --update-api "http://$GH" --no-browser --port $A --idle-exit 0
 
 # B:已经是 0.3.2,模型也都是最新
 mkdir -p "$W/b/models"; cp "$W/a/models/humanizer-12b-Q8_0.gguf" "$W/b/models/"; echo '{"tier":"q8"}' > "$W/b/settings.json"
@@ -69,7 +69,7 @@ mkmodels "$W/c"
 cat > "$W/c/update-result.json" <<EOF
 {"ok": false, "from": "0.3.1", "to": "0.3.2", "error": "新版本 0.3.2 没能启动,已换回 0.3.1", "at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
 EOF
-"$W/Applications/Humanizer.app/Contents/MacOS/Humanizer" --data-dir "$W/c" --base-url "http://$HF" --update-api "http://$GH" --no-browser --port $C --idle-exit 0
+"$W/Applications/Writeflow.app/Contents/MacOS/Writeflow" --data-dir "$W/c" --base-url "http://$HF" --update-api "http://$GH" --no-browser --port $C --idle-exit 0
 
 wait_upd $A 'd["app"]["available"] and not d["checking"] and [m["state"] for m in d["models"]]==["current","available"]'
 wait_upd $B 'd["last_ok"][:4]!="0001" and not d["checking"]'

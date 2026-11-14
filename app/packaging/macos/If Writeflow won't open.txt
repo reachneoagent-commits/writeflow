@@ -1,0 +1,9 @@
+Writeflow isn't signed with an Apple Developer ID yet, so macOS blocks the first launch. Either:
+
+1) Drag Writeflow to Applications and double-click it once (dismiss the warning), then open
+   System Settings -> Privacy & Security, scroll down and click "Open Anyway", and confirm with your password.
+2) Or run this once in Terminal (it removes the download flag):
+   xattr -dr com.apple.quarantine /Applications/Writeflow.app
+
+After that, double-clicking Writeflow opens it in your browser. It has no window and no Dock icon;
+quit from the "..." menu at the top of the page.

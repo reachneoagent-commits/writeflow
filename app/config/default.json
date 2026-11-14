@@ -23,7 +23,6 @@
       "min_ram_gb": 32,
       "sha256": "",
       "note": {
-        "zh": "效果最好",
         "en": "Best quality"
       }
     },
@@ -31,11 +30,10 @@
       "id": "q6",
       "label": "Q6_K",
       "file": "humanizer-12b-Q6_K.gguf",
-      "approx_gb": 10.0,
+      "approx_gb": 10,
       "min_ram_gb": 16,
       "sha256": "",
       "note": {
-        "zh": "和 Q8_0 几乎一样(KL 0.003),体积小两成",
         "en": "Nearly identical to Q8_0 (KL 0.003), ~20% smaller"
       }
     },
@@ -47,7 +45,6 @@
       "min_ram_gb": 12,
       "sha256": "",
       "note": {
-        "zh": "略有损失,给 16 GB 以下的机器",
         "en": "Slight loss, for machines under 16 GB"
       }
     },
@@ -59,7 +56,6 @@
       "min_ram_gb": 10,
       "sha256": "307bbfdf66fb22bf98aaa93fe7d54a713bf167e646073dc0cf10870b1525eb94",
       "note": {
-        "zh": "小幅损失,英文的事实小错略多一些",
         "en": "Small loss; a few more fact slips in English"
       }
     },
@@ -71,7 +67,6 @@
       "min_ram_gb": 8,
       "sha256": "383e5ca8f1f48ab5f65013adbc1965fa70d1d1afa6c45d932c34b854e38edbb5",
       "note": {
-        "zh": "AI 检测表现最好,事实小错多一些,数字人名要核对",
         "en": "Lowest AI-detector score; a few more fact slips (proofread numbers and names)"
       }
     }
@@ -98,7 +93,7 @@
       "tier": "q2"
     }
   ],
-  "ram_slack_gb": 1.0,
+  "ram_slack_gb": 1,
   "engine": {
     "ctx_size": 8192,
     "gpu_layers": "all",
@@ -107,11 +102,11 @@
     "extra_args": []
   },
   "sampling": {
-    "temperature": 1.0,
+    "temperature": 1,
     "top_p": 0.95,
     "top_k": 0,
-    "min_p": 0.0,
-    "repeat_penalty": 1.0
+    "min_p": 0,
+    "repeat_penalty": 1
   },
   "n_predict": {
     "factor": 2.5,
@@ -119,9 +114,9 @@
     "max": 2048
   },
   "idle_exit_minutes": 30,
-  "preferred_port": 47615,
+  "preferred_port": 47620,
   "update": {
-    "github_repo": "sgaofen/humanizer-local-model",
+    "github_repo": "reachneoagent-commits/writeflow",
     "github_api": "https://api.github.com",
     "tag_prefix": "app-v",
     "interval_hours": 24

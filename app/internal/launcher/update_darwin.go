@@ -56,7 +56,7 @@ func detectInstall() installInfo {
 // 系统不让改(权限 / App 管理保护)时返回 fallbackError,改成打开 dmg 让用户手动拖。
 func prepareApply(ctx context.Context, in installInfo, pkg string, args []string, plan *applyPlan, logf func(string, ...any)) error {
 	if in.Kind != "mac_app" || in.Mode != "replace" {
-		return errors.New("这份 App 不能原地更新")
+		return errors.New("This copy of the app can't update in place")
 	}
 	staged, backup := stagedPathFor(in), backupPathFor(in)
 	exeName, err := stageMacBundle(ctx, pkg, in.Path, staged, plan.To, logf)
@@ -69,12 +69,12 @@ func prepareApply(ctx context.Context, in installInfo, pkg string, args []string
 		if errors.Is(err, fs.ErrPermission) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
 			return &fallbackError{err}
 		}
-		return fmt.Errorf("替换 App 失败(旧版本没动):%w", err)
+		return fmt.Errorf("Couldn't replace the app (the old version is untouched): %w", err)
 	}
-	logf("已把新版本放到 %s,旧版本暂存在 %s", in.Path, backup)
+	logf("Put the new version at %s; the old version is kept at %s", in.Path, backup)
 	plan.Kind, plan.Target, plan.Backup, plan.Swapped = "swap", in.Path, backup, true
 	plan.Relaunch = append([]string{filepath.Join(in.Path, "Contents", "MacOS", exeName)}, relaunchArgs(args)...)
-	plan.Env = []string{"HUMANIZER_UPDATED_FROM=" + plan.From, "HUMANIZER_NO_BROWSER=1"}
+	plan.Env = []string{"WRITEFLOW_UPDATED_FROM=" + plan.From, "WRITEFLOW_NO_BROWSER=1"}
 	return nil
 }
 
@@ -91,7 +91,7 @@ func stageMacBundle(ctx context.Context, dmg, cur, staged, want string, logf fun
 	out, err := exec.CommandContext(ctx, "hdiutil", "attach", "-nobrowse", "-noautoopen", "-readonly", "-mountpoint", mnt, dmg).CombinedOutput()
 	if err != nil {
 		_ = os.Remove(mnt)
-		return "", fmt.Errorf("打不开安装包:%v %s", err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("Couldn't open the installer: %v %s", err, strings.TrimSpace(string(out)))
 	}
 	defer func() {
 		if err := exec.Command("hdiutil", "detach", mnt).Run(); err != nil {
@@ -103,7 +103,7 @@ func stageMacBundle(ctx context.Context, dmg, cur, staged, want string, logf fun
 	if st, err := os.Stat(src); err != nil || !st.IsDir() {
 		m, _ := filepath.Glob(filepath.Join(mnt, "*.app"))
 		if len(m) != 1 {
-			return "", errors.New("安装包里找不到 Humanizer.app")
+			return "", errors.New("Couldn't find Writeflow.app in the installer")
 		}
 		src = m[0]
 	}
@@ -112,20 +112,20 @@ func stageMacBundle(ctx context.Context, dmg, cur, staged, want string, logf fun
 	}
 	_ = os.RemoveAll(staged)
 	if out, err := exec.CommandContext(ctx, "ditto", src, staged).CombinedOutput(); err != nil {
-		return "", fmt.Errorf("复制新版本失败:%v %s", err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("Couldn't copy the new version: %v %s", err, strings.TrimSpace(string(out)))
 	}
 	_ = exec.Command("xattr", "-dr", "com.apple.quarantine", staged).Run()
 	if out, err := exec.CommandContext(ctx, "codesign", "--verify", "--deep", "--strict", staged).CombinedOutput(); err != nil {
-		return "", fmt.Errorf("复制后的新版本签名校验没通过:%s", strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("The copied new version failed its signature check: %s", strings.TrimSpace(string(out)))
 	}
 	exe := plistValue(staged, "CFBundleExecutable")
 	if exe == "" {
-		exe = "Humanizer"
+		exe = "Writeflow"
 	}
 	if err := checkVersionOutput(ctx, filepath.Join(staged, "Contents", "MacOS", exe), want); err != nil {
 		return "", err
 	}
-	logf("新版本 %s 已复制到暂存位置并通过检查", want)
+	logf("New version %s was copied to a staging location and passed its checks", want)
 	return exe, nil
 }
 
@@ -134,18 +134,18 @@ func stageMacBundle(ctx context.Context, dmg, cur, staged, want string, logf fun
 func checkMacBundle(ctx context.Context, src, cur, want string) error {
 	if curID := plistValue(cur, "CFBundleIdentifier"); curID != "" {
 		if id := plistValue(src, "CFBundleIdentifier"); id != curID {
-			return fmt.Errorf("安装包里的 App 标识是 %q,和当前的 %q 不一样", id, curID)
+			return fmt.Errorf("The app identifier in the installer is %q, different from the current %q", id, curID)
 		}
 	}
 	if v := plistValue(src, "CFBundleShortVersionString"); v != want {
-		return fmt.Errorf("安装包里的版本是 %q,应为 %s", v, want)
+		return fmt.Errorf("The version in the installer is %q, expected %s", v, want)
 	}
 	if out, err := exec.CommandContext(ctx, "codesign", "--verify", "--deep", "--strict", src).CombinedOutput(); err != nil {
-		return fmt.Errorf("安装包里的 App 签名校验没通过:%s", strings.TrimSpace(string(out)))
+		return fmt.Errorf("The app in the installer failed its signature check: %s", strings.TrimSpace(string(out)))
 	}
 	if team := teamID(cur); team != "" {
 		if got := teamID(src); got != team {
-			return fmt.Errorf("新版本的签名团队(%q)和当前的(%q)不一样", got, team)
+			return fmt.Errorf("The new version's signing team (%q) differs from the current one (%q)", got, team)
 		}
 	}
 	return nil

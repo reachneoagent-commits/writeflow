@@ -3,7 +3,7 @@
 # 触发:手动(Actions 页面 → app-test → Run workflow),或推到 main / 合并测试分支 merge-034。
 #   unit     三个系统各跑一遍:go vet / go test / 网页单测 / 端到端(假引擎 + 假下载源,Windows 上不跑 e2e.sh)
 #   windows  用假引擎打一个真的 Inno 安装包,在一次性虚拟机上装、改存储位置、卸载,
-#            核对卸载只删 Humanizer 自己的文件(devtools/win_storage_test.py)
+#            核对卸载只删 Writeflow 自己的文件(devtools/win_storage_test.py)
 #
 # 正式出包和发布在 release-app.yml(推 app-v* 标签),和这里无关。
 
@@ -59,6 +59,7 @@ jobs:
         run: |
           node devtools/webtest.mjs
           node devtools/webtest_update.mjs
+          node --test web/test/wf.test.mjs
       - name: 端到端(假引擎 + 假下载源)
         if: runner.os != 'Windows'
         run: bash devtools/e2e.sh
@@ -78,10 +79,10 @@ jobs:
       - name: 打安装包(和正式包同一个脚本)
         run: bash packaging/windows/build_win.sh 0.0.1
       - name: 装 → 改位置(D 盘中文/空格/长路径)→ 卸载,核对只删自己的文件
-        run: python devtools/win_storage_test.py dist/Humanizer-0.0.1-windows-x64-setup.exe
+        run: python devtools/win_storage_test.py dist/Writeflow-0.0.1-windows-x64-setup.exe
       - name: 失败时留下现场
         if: failure()
         run: |
-          ls -la "$LOCALAPPDATA/Humanizer" "$LOCALAPPDATA/Humanizer/logs" 2>/dev/null || true
-          cat "$LOCALAPPDATA/Humanizer/logs/launcher.log" 2>/dev/null | tail -50 || true
+          ls -la "$LOCALAPPDATA/Writeflow" "$LOCALAPPDATA/Writeflow/logs" 2>/dev/null || true
+          cat "$LOCALAPPDATA/Writeflow/logs/launcher.log" 2>/dev/null | tail -50 || true
           find /d/hz-ci -maxdepth 4 2>/dev/null | head -50 || true

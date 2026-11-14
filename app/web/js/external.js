@@ -139,3 +139,13 @@ export function bindExternal(h) {
 
 export const externalOpen = () => E.open;
 export const refreshExternal = () => { if (E.open) render(); };
+
+/** Writeflow: save settings from the Cloud model dialog (same endpoint and onChange hook as the dialog above). */
+export async function applyExternal({ enabled, url, model, apiKey }) {
+  if (hooks.isRunning()) throw new Error(t('ext.busyRunning'));
+  const body = { enabled, url, model };
+  if (apiKey !== undefined) body.api_key = apiKey;
+  const st = await postJSON('/app/external', body, { timeout: 30000 });
+  hooks.onChange(st);
+  return st;
+}

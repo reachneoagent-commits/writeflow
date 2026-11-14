@@ -8,18 +8,18 @@ APP="$PWD"
 [ -x .tools/go/bin/go ] && export PATH="$APP/.tools/go/bin:$PATH" GOPATH="$APP/.tools/gopath" GOCACHE="$APP/.tools/gocache"
 export GOFLAGS=-p=2
 # 检查更新别连真的 GitHub(要看更新界面用 devtools/update_shots.sh)
-export HUMANIZER_UPDATE_API=http://127.0.0.1:9 HUMANIZER_UPDATE_DELAY_SEC=3600
+export WRITEFLOW_UPDATE_API=http://127.0.0.1:9 WRITEFLOW_UPDATE_DELAY_SEC=3600
 
 OUT=dist/dev
 WORK=.cache/shots
 mkdir -p "$OUT" "$WORK"
-go build -o "$OUT/humanizer" .
+go build -o "$OUT/writeflow" .
 go build -o "$OUT/" ./devtools/fakellama ./devtools/fakehf ./devtools/shot
 
 PIDS=()
 cleanup() {
   for port in 47710 47711; do
-    curl -s -m 2 -X POST -H 'X-Humanizer: 1' "http://127.0.0.1:$port/app/quit" >/dev/null 2>&1 || true
+    curl -s -m 2 -X POST -H 'X-Writeflow: 1' "http://127.0.0.1:$port/app/quit" >/dev/null 2>&1 || true
   done
   sleep 1
   for p in "${PIDS[@]:-}"; do [ -n "$p" ] && kill "$p" 2>/dev/null || true; done
@@ -44,12 +44,12 @@ mkdir -p "$WORK/a/models"
 printf 'GGUF' > "$WORK/a/models/humanizer-12b-Q8_0.gguf"
 echo '{"tier":"q8","endpoint":"hf"}' > "$WORK/a/settings.json"
 FAKE_FIXTURES="$APP/devtools/fixtures/samples.json" FAKE_TOKEN_MS=6 FAKE_LOAD_MS=400 \
-  "$OUT/humanizer" --data-dir "$WORK/a" --engine "metal=$APP/$OUT/fakellama" --no-browser --port 47710 --idle-exit 0 \
+  "$OUT/writeflow" --data-dir "$WORK/a" --engine "metal=$APP/$OUT/fakellama" --no-browser --port 47710 --idle-exit 0 \
   > "$WORK/a.log" 2>&1 &
 PIDS+=($!)
 
 # B:全新安装,停在选档页;下载源指向假 HF
-"$OUT/humanizer" --data-dir "$WORK/b" --engine "metal=$APP/$OUT/fakellama" --base-url http://127.0.0.1:9181 \
+"$OUT/writeflow" --data-dir "$WORK/b" --engine "metal=$APP/$OUT/fakellama" --base-url http://127.0.0.1:9181 \
   --no-browser --port 47711 --idle-exit 0 > "$WORK/b.log" 2>&1 &
 PIDS+=($!)
 
@@ -80,7 +80,7 @@ cat > "$WORK/spec-b1.json" <<EOF
 EOF
 "$OUT/shot" -spec "$WORK/spec-b1.json"
 
-curl -s -X POST -H 'X-Humanizer: 1' -H 'Content-Type: application/json' "$B/app/setup" -d '{"tier":"q8"}' >/dev/null
+curl -s -X POST -H 'X-Writeflow: 1' -H 'Content-Type: application/json' "$B/app/setup" -d '{"tier":"q8"}' >/dev/null
 sleep 9
 cat > "$WORK/spec-b2.json" <<EOF
 [

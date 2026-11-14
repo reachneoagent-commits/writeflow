@@ -35,7 +35,7 @@ type Download struct {
 	Logf         func(format string, args ...any)
 	StallTimeout time.Duration
 	MaxRetries   int
-	UserAgent    string                  // 空 = Go 默认;检查更新/下载更新用 "humanizer-app/<版本>"
+	UserAgent    string                  // 空 = Go 默认;检查更新/下载更新用 "writeflow-app/<version>"
 	ExpectSize   int64                   // >0 时远端和下完的文件都必须正好这么大(GitHub Release 会给)
 	Verify       func(path string) error // 下完后的内容检查;nil = 查 GGUF 魔数
 
@@ -166,7 +166,7 @@ func (d *Download) Run(ctx context.Context) error {
 	}
 	if d.ExpectSize > 0 {
 		if meta.Size > 0 && meta.Size != d.ExpectSize {
-			return &PermanentError{Code: "size_mismatch", Msg: fmt.Sprintf("下载源上的文件大小不对(%d 字节,应为 %d)", meta.Size, d.ExpectSize)}
+			return &PermanentError{Code: "size_mismatch", Msg: fmt.Sprintf("The file on the download source has the wrong size (%d bytes, expected %d)", meta.Size, d.ExpectSize)}
 		}
 		meta.Size = d.ExpectSize
 	}
@@ -180,7 +180,7 @@ func (d *Download) Run(ctx context.Context) error {
 	if b, err := os.ReadFile(side); err == nil {
 		var old remoteMeta
 		if json.Unmarshal(b, &old) == nil && (old.Size != meta.Size || (old.SHA256 != "" && meta.SHA256 != "" && old.SHA256 != meta.SHA256)) {
-			d.logf("远端文件已变化(旧 %d 字节,新 %d 字节),丢弃半截文件重下", old.Size, meta.Size)
+			d.logf("The remote file changed (was %d bytes, now %d bytes); discarding the partial file and starting over", old.Size, meta.Size)
 			_ = os.Remove(part)
 		}
 	}
@@ -197,7 +197,7 @@ func (d *Download) Run(ctx context.Context) error {
 		if free, ok := freeDiskBytes(dirOf(part)); ok {
 			need := uint64(meta.Size-have) + 256<<20
 			if free < need {
-				return &PermanentError{Code: "disk_full", Msg: fmt.Sprintf("磁盘空间不够:还需要 %.1f GB,只剩 %.1f GB", float64(need)/gib, float64(free)/gib)}
+				return &PermanentError{Code: "disk_full", Msg: fmt.Sprintf("Not enough disk space: %.1f GB more needed, only %.1f GB left", float64(need)/gib, float64(free)/gib)}
 			}
 		}
 	}
@@ -217,7 +217,7 @@ func (d *Download) Run(ctx context.Context) error {
 			return err
 		}
 		wait := time.Duration(1<<min(attempt, 5)) * time.Second
-		d.logf("下载中断(%v),%s 后从 %d 字节处续传(第 %d 次)", err, wait, d.Received.Load(), attempt+1)
+		d.logf("Download interrupted (%v); resuming from byte %d in %s (attempt %d)", err, wait, d.Received.Load(), attempt+1)
 		if !sleepCtx(ctx, wait) {
 			return ctx.Err()
 		}
@@ -227,7 +227,7 @@ func (d *Download) Run(ctx context.Context) error {
 		if st, err := os.Stat(part); err != nil || st.Size() != d.ExpectSize {
 			_ = os.Remove(part)
 			_ = os.Remove(side)
-			return &PermanentError{Code: "size_mismatch", Msg: "下完的文件大小不对,已删除,请重新下载"}
+			return &PermanentError{Code: "size_mismatch", Msg: "The downloaded file has the wrong size and was deleted; download it again"}
 		}
 	}
 	check := d.Verify
@@ -248,12 +248,12 @@ func (d *Download) Run(ctx context.Context) error {
 		if got != expect {
 			_ = os.Remove(part)
 			_ = os.Remove(side)
-			return &PermanentError{Code: "checksum", Msg: fmt.Sprintf("文件校验失败(sha256 %s… ≠ 期望 %s…),已删除,请重新下载", got[:12], expect[:12])}
+			return &PermanentError{Code: "checksum", Msg: fmt.Sprintf("File check failed (sha256 %s... does not match expected %s...); it was deleted, download it again", got[:12], expect[:12])}
 		}
-		d.logf("sha256 校验通过 %s", got)
+		d.logf("sha256 check passed %s", got)
 		d.SHA = got
 	} else {
-		d.logf("远端没给 sha256,跳过校验")
+		d.logf("The remote didn't provide a sha256; skipping the check")
 	}
 	if err := os.Rename(part, d.Dest); err != nil {
 		return err
@@ -324,9 +324,9 @@ func (d *Download) setUA(r *http.Request) {
 func statusError(code int, u string) *PermanentError {
 	switch code {
 	case 404:
-		return &PermanentError{Code: "not_found", Msg: "下载源上找不到这个模型文件(仓库里可能还没上传):" + redactURL(u)}
+		return &PermanentError{Code: "not_found", Msg: "The download source doesn't have this model file (it may not be uploaded yet): " + redactURL(u)}
 	case 401, 403:
-		return &PermanentError{Code: "forbidden", Msg: "下载源拒绝访问(仓库私有、需要登录,或镜像不可用):" + redactURL(u)}
+		return &PermanentError{Code: "forbidden", Msg: "The download source refused access (private repository, login needed, or the mirror is unavailable): " + redactURL(u)}
 	}
 	return nil
 }
@@ -383,22 +383,22 @@ func (d *Download) fetchOnce(parent context.Context, part string, size int64) er
 		m := contentRangeRe.FindStringSubmatch(resp.Header.Get("Content-Range"))
 		if m == nil {
 			_ = f.Truncate(0)
-			return fmt.Errorf("Content-Range 格式不对: %q", resp.Header.Get("Content-Range"))
+			return fmt.Errorf("Bad Content-Range format: %q", resp.Header.Get("Content-Range"))
 		}
 		if start, _ := strconv.ParseInt(m[1], 10, 64); start != off {
 			_ = f.Truncate(0)
-			return fmt.Errorf("服务器从 %d 续传,本地是 %d,从头来", start, off)
+			return fmt.Errorf("The server resumed from %d but the local file is at %d; starting over", start, off)
 		}
 		if size <= 0 && m[3] != "*" {
 			size, _ = strconv.ParseInt(m[3], 10, 64)
 			d.Total.Store(size)
 		}
 		if off > 0 {
-			d.logf("从 %d 字节处续传", off)
+			d.logf("Resuming from byte %d", off)
 		}
 	case http.StatusOK:
 		if off > 0 {
-			d.logf("服务器不支持断点续传,从头下载")
+			d.logf("The server doesn't support resuming; downloading from the start")
 			if err := f.Truncate(0); err != nil {
 				return err
 			}
@@ -414,7 +414,7 @@ func (d *Download) fetchOnce(parent context.Context, part string, size int64) er
 			return nil
 		}
 		_ = f.Truncate(0)
-		return errors.New("HTTP 416,从头下载")
+		return errors.New("HTTP 416, downloading from the start")
 	default:
 		if pe := statusError(resp.StatusCode, d.URL); pe != nil {
 			return pe
@@ -470,7 +470,7 @@ func (d *Download) fetchOnce(parent context.Context, part string, size int64) er
 				return parent.Err()
 			}
 			if stalled.Load() {
-				return fmt.Errorf("%s 内没有收到数据", d.StallTimeout)
+				return fmt.Errorf("No data received within %s", d.StallTimeout)
 			}
 			return rerr
 		}
@@ -480,7 +480,7 @@ func (d *Download) fetchOnce(parent context.Context, part string, size int64) er
 	}
 	_ = f.Sync()
 	if size > 0 && off != size {
-		return fmt.Errorf("连接提前结束(%d/%d 字节)", off, size)
+		return fmt.Errorf("The connection ended early (%d/%d bytes)", off, size)
 	}
 	return nil
 }
@@ -488,9 +488,9 @@ func (d *Download) fetchOnce(parent context.Context, part string, size int64) er
 func diskErr(err error) error {
 	var errno syscall.Errno
 	if errors.As(err, &errno) && (errno == syscall.ENOSPC || errno == 112 /* ERROR_DISK_FULL */) {
-		return &PermanentError{Code: "disk_full", Msg: "磁盘写满了,请清理空间后点继续"}
+		return &PermanentError{Code: "disk_full", Msg: "The disk is full. Free up space, then press Resume"}
 	}
-	return &PermanentError{Code: "io", Msg: "写文件失败:" + err.Error()}
+	return &PermanentError{Code: "io", Msg: "Couldn't write the file: " + err.Error()}
 }
 
 func (d *Download) hashFile(ctx context.Context, path string) (string, error) {
@@ -531,7 +531,7 @@ func checkGGUFMagic(path string) error {
 	defer f.Close()
 	var magic [4]byte
 	if _, err := io.ReadFull(f, magic[:]); err != nil || string(magic[:]) != "GGUF" {
-		return &PermanentError{Code: "not_gguf", Msg: "下载到的不是 GGUF 模型文件(可能被网关/镜像替换成了网页),已删除"}
+		return &PermanentError{Code: "not_gguf", Msg: "What came down isn't a GGUF model file (a gateway or mirror may have swapped in a web page); it was deleted"}
 	}
 	return nil
 }

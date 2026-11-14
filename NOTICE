@@ -1,3 +1,13 @@
+Writeflow
+Part of the FlowApps suite.
+
+Writeflow is a modified version of "humanizer" (https://github.com/sgaofen/humanizer-local-model,
+Copyright 2026 Stephen Yu), used under the Apache License, Version 2.0 (see LICENSE).
+Changes: new name, branding and colors; a separate data folder and port; and added features
+(AI-sounding score, flagged text, facts check, reading level, writing-style comparison)
+in app/web/js/wf/. The original NOTICE follows.
+
+----- Original NOTICE -----
 humanizer
 Copyright 2026 Stephen Yu
 
@@ -7,3 +17,13 @@ This applies to the code in this repository and to the released model weights.
 The model weights are fine-tuned from google/gemma-4-12B
 (https://huggingface.co/google/gemma-4-12B), which Google releases under the
 Apache License, Version 2.0. This project is not affiliated with or endorsed by Google.
+----- End of original NOTICE -----
+
+Other credits:
+- The rewrite model, jialinyyzz/humanizer (https://huggingface.co/jialinyyzz/humanizer), Apache 2.0.
+  Downloaded by the user at first run; it is not bundled.
+- llama.cpp (https://github.com/ggml-org/llama.cpp), MIT, runs the model locally.
+- The AI-sounding rules in app/web/js/wf/score.js are written in our own words, informed by
+  Wikipedia's "Signs of AI writing" guide and by the public pattern lists in blader/humanizer (MIT),
+  Aboudjem/humanizer-skill (MIT) and brandonwise/humanizer (MIT). No text is copied from them.
+- Fonts under app/web/fonts keep their own OFL licenses.

@@ -13,7 +13,7 @@ func detectInstall() installInfo {
 }
 
 func prepareApply(ctx context.Context, in installInfo, pkg string, args []string, plan *applyPlan, logf func(string, ...any)) error {
-	return errors.New("这个平台不支持自动更新")
+	return errors.New("This platform doesn't support automatic updates")
 }
 
 func executePlan(plan *applyPlan, logf func(string, ...any)) {

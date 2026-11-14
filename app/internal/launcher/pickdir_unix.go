@@ -39,7 +39,7 @@ func pickDir(ctx context.Context, from, title string) (string, error) {
 		// 用户取消:退出码非 0、没有输出 → 空路径。别再弹下一个工具的窗口
 		return absDir(strings.TrimSpace(string(out))), nil
 	}
-	return "", errors.New("没有可用的文件夹选择器(zenity / kdialog 都没装)")
+	return "", errors.New("No folder picker is available (neither zenity nor kdialog is installed)")
 }
 
 // osascriptPick macOS 的原生选择器(可以 ⇧⌘G 直接输入路径)。用户点取消返回空路径。

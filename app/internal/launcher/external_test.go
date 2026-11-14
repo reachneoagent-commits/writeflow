@@ -102,7 +102,7 @@ func testLauncher(t *testing.T) (*App, string) {
 func postApp(t *testing.T, base, path, body string) (int, map[string]any) {
 	t.Helper()
 	req, _ := http.NewRequest("POST", base+path, strings.NewReader(body))
-	req.Header.Set("X-Humanizer", "1")
+	req.Header.Set("X-Writeflow", "1")
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -178,7 +178,7 @@ func TestExternalServiceProxy(t *testing.T) {
 
 	// 反代:流式透传,带上 key,去掉浏览器的头
 	req, _ := http.NewRequest("POST", base+"/api/v1/chat/completions", strings.NewReader(`{"model":"humanizer-12b-q8_0","messages":[{"role":"user","content":"draft"}],"stream":true}`))
-	req.Header.Set("X-Humanizer", "1")
+	req.Header.Set("X-Writeflow", "1")
 	req.Header.Set("Origin", base)
 	req.Header.Set("Cookie", "a=b")
 	resp, err := http.DefaultClient.Do(req)
@@ -204,17 +204,17 @@ func TestExternalServiceProxy(t *testing.T) {
 	lastBody := fake.body[len(fake.body)-1]
 	fake.mu.Unlock()
 	if last.URL.Path != "/v1/chat/completions" || last.Header.Get("Authorization") != "Bearer sk-test" ||
-		last.Header.Get("Origin") != "" || last.Header.Get("Cookie") != "" || last.Header.Get("X-Humanizer") != "" {
+		last.Header.Get("Origin") != "" || last.Header.Get("Cookie") != "" || last.Header.Get("X-Writeflow") != "" {
 		t.Fatalf("转发的请求不对:%s %v", last.URL.Path, last.Header)
 	}
 	if lastBody["model"] != "humanizer-12b-q8_0" {
 		t.Fatalf("请求体要原样转发:%v", lastBody)
 	}
 
-	// 外部模式下只放行 chat/completions;没带 X-Humanizer 的 POST 照样被挡
+	// 外部模式下只放行 chat/completions;没带 X-Writeflow 的 POST 照样被挡
 	for _, p := range []string{"/api/tokenize", "/api/completion", "/api/v1/models", "/api/v1/completions"} {
 		req, _ := http.NewRequest("POST", base+p, strings.NewReader(`{}`))
-		req.Header.Set("X-Humanizer", "1")
+		req.Header.Set("X-Writeflow", "1")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -225,7 +225,7 @@ func TestExternalServiceProxy(t *testing.T) {
 		}
 	}
 	if resp, _ := http.Post(base+"/api/v1/chat/completions", "application/json", strings.NewReader(`{}`)); resp.StatusCode != 403 {
-		t.Errorf("没带 X-Humanizer 应该 403,得到 %d", resp.StatusCode)
+		t.Errorf("没带 X-Writeflow 应该 403,得到 %d", resp.StatusCode)
 	}
 
 	// 外部模式下不能换档 / 重启自带引擎;startEngine 也不会把自带引擎拉起来
@@ -257,7 +257,7 @@ func TestExternalServiceProxy(t *testing.T) {
 	// 服务挂了:清楚的 502
 	ext.Close()
 	req, _ = http.NewRequest("POST", base+"/api/v1/chat/completions", strings.NewReader(`{}`))
-	req.Header.Set("X-Humanizer", "1")
+	req.Header.Set("X-Writeflow", "1")
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +286,7 @@ func TestExternalServiceProxy(t *testing.T) {
 		t.Fatalf("关闭后应回到 setup 且记住地址:%+v %+v", st.Phase, st.External)
 	}
 	req, _ = http.NewRequest("POST", base+"/api/v1/chat/completions", strings.NewReader(`{}`))
-	req.Header.Set("X-Humanizer", "1")
+	req.Header.Set("X-Writeflow", "1")
 	resp, _ = http.DefaultClient.Do(req)
 	resp.Body.Close()
 	if resp.StatusCode != 404 {

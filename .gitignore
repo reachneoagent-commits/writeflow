@@ -8,3 +8,4 @@ assets/preview/
 /dist/
 *.egg-info/
 !eval/**/*.jsonl
+.DS_Store

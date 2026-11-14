@@ -93,7 +93,7 @@ func TestResolveStartPathsLocked(t *testing.T) {
 func TestLocationJSONPlainUTF8(t *testing.T) {
 	for _, p := range []string{
 		`D:\模型 文件夹\R&D <新>`,
-		"/Volumes/外置 盘/Humanizer \"引号\" 😀",
+		"/Volumes/外置 盘/Writeflow \"引号\" 😀",
 		`\\nas\共享\models`,
 	} {
 		b := locationJSON(location{DataDir: p, ModelDir: p + "2"})
@@ -129,7 +129,7 @@ func TestResolveStartPathsIgnoresRelative(t *testing.T) {
 
 func TestSaveLocationRoundTrip(t *testing.T) {
 	tmp := fakeHome(t)
-	data2, models2 := filepath.Join(tmp, "D", "Humanizer"), filepath.Join(tmp, "D", "gguf")
+	data2, models2 := filepath.Join(tmp, "D", "Writeflow"), filepath.Join(tmp, "D", "gguf")
 	if err := saveLocation(defaultDataDir(), data2, models2); err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ func strconvQuote(s string) string {
 	return string(b)
 }
 
-// 选一个已经有别的文件的文件夹当运行目录:不能把 settings.json / config.json 混进去,改成里面的 Humanizer 子文件夹。
+// 选一个已经有别的文件的文件夹当运行目录:不能把 settings.json / config.json 混进去,改成里面的 Writeflow 子文件夹。
 func TestApplyPathsRunDirNeverMixesWithUserFiles(t *testing.T) {
 	tmp := fakeHome(t)
 	a := testApp(t)
@@ -506,7 +506,7 @@ func TestApplyPathsRunDirNeverMixesWithUserFiles(t *testing.T) {
 	if _, err := a.applyPaths(busy, "", false); err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(busy, "Humanizer"); !samePath(a.dataDir, want) {
+	if want := filepath.Join(busy, "Writeflow"); !samePath(a.dataDir, want) {
 		t.Fatalf("有别的文件的文件夹应改用子文件夹 %s,实际 %s", want, a.dataDir)
 	}
 	if b, _ := os.ReadFile(filepath.Join(busy, "settings.json")); string(b) != "mine" {
@@ -528,11 +528,11 @@ func TestApplyPathsRunDirNeverMixesWithUserFiles(t *testing.T) {
 		t.Fatalf("以前用过的运行目录应直接用:%s %v", a.dataDir, err)
 	}
 
-	// 里面的 Humanizer 也被占了:报错,位置不变
+	// 里面的 Writeflow 也被占了:报错,位置不变
 	taken := filepath.Join(tmp, "taken")
-	os.MkdirAll(filepath.Join(taken, "Humanizer"), 0o755)
+	os.MkdirAll(filepath.Join(taken, "Writeflow"), 0o755)
 	os.WriteFile(filepath.Join(taken, "a.txt"), nil, 0o644)
-	os.WriteFile(filepath.Join(taken, "Humanizer", "README.md"), nil, 0o644)
+	os.WriteFile(filepath.Join(taken, "Writeflow", "README.md"), nil, 0o644)
 	if _, err := a.applyPaths(taken, "", false); err == nil {
 		t.Fatal("子文件夹也被占了应报错")
 	}

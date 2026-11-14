@@ -166,8 +166,8 @@ func (a *App) launchOnce(b Backend, layers, model string, logw io.Writer) (*engi
 	cmd.Stdout = sc
 	cmd.Stderr = sc
 	prepareCmd(cmd)
-	fmt.Fprintf(logw, "\n===== %s 启动 %s %s =====\n", time.Now().Format(time.RFC3339), b.Name, strings.Join(args, " "))
-	a.logf("启动引擎 [%s] -ngl %s 端口 %d", b.Name, layers, port)
+	fmt.Fprintf(logw, "\n===== %s start %s %s =====\n", time.Now().Format(time.RFC3339), b.Name, strings.Join(args, " "))
+	a.logf("Starting engine [%s] -ngl %s port %d", b.Name, layers, port)
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func waitHealthy(ctx context.Context, p *engineProc, timeout time.Duration) erro
 			return fmt.Errorf("%w: %v", errEngineExited, p.waitErr)
 		case <-tick.C:
 			if time.Now().After(deadline) {
-				return fmt.Errorf("加载超时(%s)", timeout)
+				return fmt.Errorf("Load timed out (%s)", timeout)
 			}
 			resp, err := client.Get(url)
 			if err != nil {
@@ -249,7 +249,7 @@ func (a *App) runEngine(ctx context.Context, tier Tier) {
 	model := a.modelPath(tier)
 	backends := a.backends
 	if len(backends) == 0 {
-		a.setError("engine", "no_engine", "找不到随包附带的 llama-server,安装可能不完整", "")
+		a.setError("engine", "no_engine", "Couldn't find the llama-server that ships with the app; the installation may be incomplete", "")
 		return
 	}
 	engineDataDir, _ := a.pathsNow()
@@ -309,7 +309,7 @@ func (a *App) runEngine(ctx context.Context, tier Tier) {
 			if !bindFail {
 				break
 			}
-			a.logf("端口冲突,换端口重试")
+			a.logf("Port conflict; retrying on another port")
 		}
 		if ctx.Err() != nil {
 			if p != nil {
@@ -324,7 +324,7 @@ func (a *App) runEngine(ctx context.Context, tier Tier) {
 				p.stop()
 				lastTail = p.scan.tailText(12)
 			}
-			a.logf("引擎 [%s -ngl %s] 失败:%s", at.b.Name, at.layers, detail)
+			a.logf("Engine [%s -ngl %s] failed: %s", at.b.Name, at.layers, detail)
 			a.finishAttempt("failed", detail)
 			if p == nil { // 二进制都起不来(缺 DLL、没权限),同后端别再试
 				skip[at.b.Name] = true
@@ -334,8 +334,8 @@ func (a *App) runEngine(ctx context.Context, tier Tier) {
 		off, total, gotLoad, device, build, _ := p.scan.snapshot()
 		if at.b.GPU && gotLoad && off == 0 {
 			p.stop()
-			a.logf("引擎 [%s] 跑起来了,但 0/%d 层在 GPU 上,换下一个后端", at.b.Name, total)
-			a.finishAttempt("no_gpu", fmt.Sprintf("0/%d 层在 GPU 上", total))
+			a.logf("Engine [%s] is running, but 0/%d layers are on the GPU; trying the next backend", at.b.Name, total)
+			a.finishAttempt("no_gpu", fmt.Sprintf("0/%d layers on the GPU", total))
 			skip[at.b.Name] = true
 			continue
 		}
@@ -367,12 +367,12 @@ func (a *App) runEngine(ctx context.Context, tier Tier) {
 			}
 		}
 		a.writeInstance()
-		a.logf("引擎就绪 [%s] 设备=%q 卸载=%d/%d", at.b.Name, device, off, total)
+		a.logf("Engine ready [%s] device=%q offloaded=%d/%d", at.b.Name, device, off, total)
 		go a.watchEngine(ctx, p, tier, closeLog)
 		return
 	}
 	closeLog()
-	a.setError("engine", "engine_failed", "推理引擎没能启动(所有后端都试过了)", lastTail)
+	a.setError("engine", "engine_failed", "The inference engine couldn't start (every backend was tried)", lastTail)
 }
 
 // watchEngine:引擎意外退出时自动重启,短时间内连崩两次就报错。
@@ -395,9 +395,9 @@ func (a *App) watchEngine(ctx context.Context, p *engineProc, tier Tier, closeLo
 		return
 	}
 	tail := p.scan.tailText(12)
-	a.logf("引擎意外退出(%v),第 %d 次重启", p.waitErr, n)
+	a.logf("The engine exited unexpectedly (%v); restart %d", p.waitErr, n)
 	if n > 2 {
-		a.setError("engine", "engine_crash", "推理引擎反复崩溃", tail)
+		a.setError("engine", "engine_crash", "The inference engine keeps crashing", tail)
 		return
 	}
 	a.startEngine(tier)

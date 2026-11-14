@@ -5,7 +5,7 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { fails++; console.error('✗', msg); } else console.log('✓', msg); };
 
 // 1. 取「改了什么」:用的是 GitHub 上 app-v0.3.0 / app-v0.3.1 真实说明的结构
-const BODY_031 = '**humanizer** rewrites AI-written drafts.\n\n## What changed in 0.3.1\n\n- **Fixed:** an English draft occasionally came back rewritten in Chinese.\n\n## Download\n\n| Your computer | File |\n|---|---|\n| Mac | `Humanizer-0.3.1-macos-arm64.dmg` |\n';
+const BODY_031 = '**humanizer** rewrites AI-written drafts.\n\n## What changed in 0.3.1\n\n- **Fixed:** an English draft occasionally came back rewritten in Chinese.\n\n## Download\n\n| Your computer | File |\n|---|---|\n| Mac | `Writeflow-0.3.1-macos-arm64.dmg` |\n';
 const BODY_030 = '**humanizer** rewrites.\n\n## What changed in 0.3.0\n\n- **Two new, smaller sizes: Q3 (5.6 GB) and 2-bit (3.9 GB).**\n- **Every size shows a quality note**:\n\n| Size | Download |\n|---|---|\n| Q8_0 | 12.7 GB |\n\n  Memory is the model server\'s peak.\n- **Changing sizes:** open the menu.\n\n## Download\n\nstuff\n\n---\n\n**humanizer** 把草稿改写。\n\n**0.3.0 改了什么**\n- **新增两个更小的档位**，8 GB 也能跑。\n- **换档**：右上角菜单。\n\n**下载**：Mac 用 `.dmg`。\n';
 const en031 = pickNotes(BODY_031, 'en');
 ok(en031.startsWith('- **Fixed:**') && !en031.includes('Download'), '英文:只取 What changed 一节');

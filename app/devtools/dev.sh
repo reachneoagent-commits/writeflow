@@ -9,10 +9,10 @@ APP="$PWD"
 [ -x .tools/go/bin/go ] && export PATH="$APP/.tools/go/bin:$PATH" GOPATH="$APP/.tools/gopath" GOCACHE="$APP/.tools/gocache"
 export GOFLAGS=-p=2
 # 检查更新别连真的 GitHub(要看更新界面用 devtools/update_shots.sh)
-export HUMANIZER_UPDATE_API=http://127.0.0.1:9 HUMANIZER_UPDATE_DELAY_SEC=3600
+export WRITEFLOW_UPDATE_API=http://127.0.0.1:9 WRITEFLOW_UPDATE_DELAY_SEC=3600
 OUT=dist/dev
 mkdir -p "$OUT"
-go build -o "$OUT/humanizer" .
+go build -o "$OUT/writeflow" .
 go build -o "$OUT/" ./devtools/fakellama ./devtools/fakehf
 
 DATA=.cache/dev
@@ -29,5 +29,5 @@ HF=$!
 trap 'kill $HF 2>/dev/null || true' EXIT
 
 FAKE_FIXTURES="$APP/devtools/fixtures/samples.json" \
-  "$OUT/humanizer" --data-dir "$DATA" --engine "metal=$APP/$OUT/fakellama" \
+  "$OUT/writeflow" --data-dir "$DATA" --engine "metal=$APP/$OUT/fakellama" \
   --base-url http://127.0.0.1:9190 --web-dir "$APP/web" --port 47690 --idle-exit 0

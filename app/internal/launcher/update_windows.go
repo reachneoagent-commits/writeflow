@@ -67,25 +67,25 @@ func prepareApply(ctx context.Context, in installInfo, pkg string, args []string
 	switch in.Kind {
 	case "win_installed":
 		if in.Mode != "installer" {
-			return errors.New("这份 App 不能自动更新")
+			return errors.New("This copy of the app can't update automatically")
 		}
 		plan.Kind = "installer"
 		plan.Installer = []string{pkg, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/NOCANCEL",
 			"/CLOSEAPPLICATIONS", "/LOG=" + filepath.Join(plan.DataDir, "logs", "update-install.log")}
 	case "win_portable":
 		if in.Mode != "replace" {
-			return errors.New("这份 App 不能自动更新")
+			return errors.New("This copy of the app can't update automatically")
 		}
 		staged := stagedPathFor(in)
 		_ = os.RemoveAll(staged)
-		logf("解压新版本到 %s", staged)
+		logf("Unpacking the new version to %s", staged)
 		if err := extractZip(pkg, staged); err != nil {
 			_ = os.RemoveAll(staged)
-			return fmt.Errorf("解压新版本失败:%w", err)
+			return fmt.Errorf("Couldn't unpack the new version: %w", err)
 		}
 		if !fileExists(filepath.Join(staged, exeName)) || !dirExists(filepath.Join(staged, "engine")) {
 			_ = os.RemoveAll(staged)
-			return errors.New("新版本的压缩包内容不完整")
+			return errors.New("The new version's archive is incomplete")
 		}
 		if err := checkVersionOutput(ctx, filepath.Join(staged, exeName), plan.To); err != nil {
 			_ = os.RemoveAll(staged)
@@ -93,11 +93,11 @@ func prepareApply(ctx context.Context, in installInfo, pkg string, args []string
 		}
 		plan.Kind, plan.Staged = "swap", staged
 	default:
-		return errors.New("这份 App 不能自动更新")
+		return errors.New("This copy of the app can't update automatically")
 	}
 	plan.Target, plan.Backup = in.Path, backupPathFor(in)
 	plan.Relaunch = append([]string{filepath.Join(in.Path, exeName)}, relaunchArgs(args)...)
-	plan.Env = []string{"HUMANIZER_UPDATED_FROM=" + plan.From, "HUMANIZER_NO_BROWSER=1"}
+	plan.Env = []string{"WRITEFLOW_UPDATED_FROM=" + plan.From, "WRITEFLOW_NO_BROWSER=1"}
 	plan.WaitPID = os.Getpid()
 	return nil
 }
@@ -109,28 +109,28 @@ func executePlan(plan *applyPlan, logf func(string, ...any)) {
 	planPath := filepath.Join(dir, "apply-plan.json")
 	b, _ := json.MarshalIndent(plan, "", "  ")
 	if err := writeFileAtomic(planPath, b); err != nil {
-		logf("写更新计划失败:%v", err)
+		logf("Couldn't write the update plan: %v", err)
 		return
 	}
 	exe, err := os.Executable()
 	if err != nil {
-		logf("找不到自己的路径:%v", err)
+		logf("Couldn't find its own path: %v", err)
 		return
 	}
-	helper := filepath.Join(dir, "humanizer-updater-"+strconv.Itoa(os.Getpid())+".exe")
+	helper := filepath.Join(dir, "writeflow-updater-"+strconv.Itoa(os.Getpid())+".exe")
 	if err := copyFile(exe, helper); err != nil {
-		logf("复制更新助手失败:%v", err)
+		logf("Couldn't copy the update helper: %v", err)
 		return
 	}
 	cmd := exec.Command(helper, "--apply-update", planPath)
 	cmd.Dir = dir
 	detach(cmd)
 	if err := cmd.Start(); err != nil {
-		logf("启动更新助手失败:%v", err)
+		logf("Couldn't start the update helper: %v", err)
 		return
 	}
 	_ = cmd.Process.Release()
-	logf("更新助手已启动(pid %d),本进程退出", cmd.Process.Pid)
+	logf("Update helper started (pid %d); this process is exiting", cmd.Process.Pid)
 }
 
 func copyFile(src, dst string) error {

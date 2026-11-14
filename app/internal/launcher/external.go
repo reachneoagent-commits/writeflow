@@ -142,7 +142,7 @@ func (a *App) externalProxy(base *url.URL, key string) http.Handler {
 			pr.Out.URL.RawPath = ""
 			pr.Out.URL.RawQuery = ""
 			pr.Out.Host = base.Host
-			for _, h := range []string{"Origin", "Referer", "Cookie", "X-Humanizer", "Authorization"} {
+			for _, h := range []string{"Origin", "Referer", "Cookie", "X-Writeflow", "Authorization"} {
 				pr.Out.Header.Del(h)
 			}
 			if key != "" {
@@ -164,7 +164,7 @@ func (a *App) externalProxy(base *url.URL, key string) http.Handler {
 			}
 			writeJSON(w, http.StatusBadGateway, map[string]any{"error": map[string]any{
 				"code": 502, "type": "external_unreachable", "url": base.String(),
-				"message": "连不上外部服务 " + base.String() + ":" + err.Error(),
+				"message": "Couldn't connect to the external service " + base.String() + ":" + err.Error(),
 			}})
 		},
 	}
@@ -245,7 +245,7 @@ func (a *App) enterExternal() {
 	}
 	a.mu.Unlock()
 	a.writeInstance()
-	a.logf("使用外部服务 %s,自带引擎不启动", a.engInfo.Device)
+	a.logf("Using external service %s; the built-in engine won't start", a.engInfo.Device)
 }
 
 func (a *App) handleExternalGet(w http.ResponseWriter, r *http.Request) {
@@ -310,13 +310,13 @@ func (a *App) handleExternalSet(w http.ResponseWriter, r *http.Request) {
 	a.restarts = 0
 	a.mu.Unlock()
 	if err := saveSettings(a.settingsPath(), s); err != nil {
-		a.logf("保存设置失败:%v", err)
+		a.logf("Couldn't save settings: %v", err)
 	}
 	switch {
 	case now:
 		a.enterExternal() // 换了地址/模型也重新记一下
 	case was:
-		a.logf("关闭外部服务,恢复自带引擎")
+		a.logf("External service turned off; restoring the built-in engine")
 		a.mu.Lock()
 		a.engInfo = engineInfo{}
 		a.mu.Unlock()

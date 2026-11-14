@@ -11,30 +11,30 @@ import (
 	"strings"
 )
 
-// defaultDataDir:Mac ~/Library/Application Support/Humanizer,
-// Windows %LOCALAPPDATA%\Humanizer,其他系统 $XDG_DATA_HOME/Humanizer。
+// defaultDataDir:Mac ~/Library/Application Support/Writeflow,
+// Windows %LOCALAPPDATA%\Writeflow,其他系统 $XDG_DATA_HOME/Writeflow。
 func defaultDataDir() string {
 	home, _ := os.UserHomeDir()
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "Humanizer")
+		return filepath.Join(home, "Library", "Application Support", "Writeflow")
 	case "windows":
 		if d := os.Getenv("LOCALAPPDATA"); d != "" {
-			return filepath.Join(d, "Humanizer")
+			return filepath.Join(d, "Writeflow")
 		}
-		return filepath.Join(home, "AppData", "Local", "Humanizer")
+		return filepath.Join(home, "AppData", "Local", "Writeflow")
 	default:
 		if d := os.Getenv("XDG_DATA_HOME"); d != "" {
-			return filepath.Join(d, "Humanizer")
+			return filepath.Join(d, "Writeflow")
 		}
-		return filepath.Join(home, ".local", "share", "Humanizer")
+		return filepath.Join(home, ".local", "share", "Writeflow")
 	}
 }
 
 // pointerName:一个很小的文件,记着用户在网页上把存储位置改到了哪儿。
 // 平时放在默认数据目录里,所以运行目录整个换掉、甚至搬走了,下次启动照样找得到;
 // 运行目录被 --data-dir 钉死时放在那个目录里,只记模型目录。
-// Windows 卸载程序也读它(humanizer.iss),写法见 locationJSON。
+// Windows 卸载程序也读它(writeflow.iss),写法见 locationJSON。
 const pointerName = "location.json"
 
 // location 只存路径,别的一概不放:这样数据目录丢了还能靠它找回来。
@@ -73,7 +73,7 @@ func resolveStartPaths(explicit string) startPaths {
 			if usableDir(d) {
 				sp.DataDir = d
 			} else {
-				sp.Note = "记下的运行目录 " + d + " 现在用不了(盘没插或没有写权限),这次先用默认位置"
+				sp.Note = "The saved run folder " + d + " can't be used right now (the drive isn't connected or isn't writable); using the default location this time"
 			}
 		}
 		// 模型目录不要求已经存在(它下次下载时才建):这时悄悄回默认,
@@ -122,7 +122,7 @@ func saveLocation(pointerDir, dataDir, modelDir string) error {
 }
 
 // locationJSON:UTF-8,中文和 & < > 原样写(不用 \uXXXX)。
-// Windows 卸载程序(humanizer.iss)按 UTF-8 读这个文件,只认 \\ 和 \" 两种转义,别的转义一律当没设过。
+// Windows 卸载程序(writeflow.iss)按 UTF-8 读这个文件,只认 \\ 和 \" 两种转义,别的转义一律当没设过。
 func locationJSON(loc location) []byte {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
@@ -173,19 +173,19 @@ func usableDir(p string) bool {
 func cleanDir(p string) (string, error) {
 	p = strings.TrimSpace(p)
 	if p == "" {
-		return "", errors.New("路径是空的")
+		return "", errors.New("The path is empty")
 	}
 	dir := absDir(p)
 	if st, err := os.Stat(dir); err == nil {
 		if !st.IsDir() {
-			return "", fmt.Errorf("%s 不是一个文件夹", dir)
+			return "", fmt.Errorf("%s is not a folder", dir)
 		}
 	} else if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("建不了这个文件夹:%v", err)
+		return "", fmt.Errorf("Couldn't create this folder: %v", err)
 	}
-	probe := filepath.Join(dir, ".humanizer-write-test")
+	probe := filepath.Join(dir, ".writeflow-write-test")
 	if err := os.WriteFile(probe, nil, 0o644); err != nil {
-		return "", fmt.Errorf("这个文件夹写不进去:%v", err)
+		return "", fmt.Errorf("Couldn't write to this folder: %v", err)
 	}
 	_ = os.Remove(probe)
 	return dir, nil
@@ -202,9 +202,9 @@ type Backend struct {
 
 // discoverBackends 找随包附带的引擎,按优先级排好。
 //
-//	macOS  .app:  Humanizer.app/Contents/MacOS/Humanizer
-//	              Humanizer.app/Contents/Resources/engine/metal/llama-server
-//	Windows:      安装目录\Humanizer.exe
+//	macOS  .app:  Writeflow.app/Contents/MacOS/Writeflow
+//	              Writeflow.app/Contents/Resources/engine/metal/llama-server
+//	Windows:      安装目录\Writeflow.exe
 //	              安装目录\engine\{cuda,vulkan,cpu}\llama-server.exe
 //	开发/便携:    启动器同目录下的 engine/<name>/llama-server
 func discoverBackends(overrides []string, gpu GPUInfo) []Backend {
@@ -270,7 +270,7 @@ func discoverBackends(overrides []string, gpu GPUInfo) []Backend {
 	return out
 }
 
-// parseEngineOverrides:开发时用 --engine / HUMANIZER_ENGINE 指定引擎。
+// parseEngineOverrides:开发时用 --engine / WRITEFLOW_ENGINE 指定引擎。
 // 形如 "/path/llama-server" 或 "cuda=/a;cpu=/b"(多个用 ; 分隔,也可以重复 --engine)。
 func parseEngineOverrides(items []string) []Backend {
 	var out []Backend

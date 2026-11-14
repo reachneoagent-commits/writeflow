@@ -18,7 +18,7 @@ import (
 //	运行目录(数据目录)设置、日志、更新包、更新结果都在这儿;
 //	模型目录          GGUF 文件(.part 半截文件也在这儿)都在这儿。
 //
-// 两者默认都在系统盘(Windows %LOCALAPPDATA%\Humanizer),网页上可以改成别的盘。
+// 两者默认都在系统盘(Windows %LOCALAPPDATA%\Writeflow),网页上可以改成别的盘。
 // 改位置不会自动搬文件(几十 GB,又是系统自己做的决定),要搬得在网页上勾一下。
 
 // modelsDir 模型文件放哪儿。locModelDir 为空就是数据目录下的 models/。
@@ -56,18 +56,18 @@ func (a *App) pathsNow() (dataDir, modelsDir string) {
 // 换完按新位置重新判断开机状态:该下的重新下,该起的重新起。
 func (a *App) applyPaths(dataDir, modelDir string, move bool) (moved int, err error) {
 	if !a.pathsMu.TryLock() {
-		return 0, errors.New("上一次换位置还没做完,等它做完再试")
+		return 0, errors.New("The last location change isn't finished yet; try again when it is")
 	}
 	defer a.pathsMu.Unlock()
 	if a.updates != nil && a.updates.busy() {
-		return 0, errors.New("正在下载或安装更新,等更新做完(或暂停)再换位置")
+		return 0, errors.New("An update is downloading or installing; change the location after it finishes (or pause it)")
 	}
 	curData, curModels := a.pathsNow()
 
 	wantData := curData
 	if s := strings.TrimSpace(dataDir); s != "" && !samePath(s, curData) {
 		if a.dataDirLocked {
-			return 0, errors.New("运行目录由启动参数 --data-dir 固定,改不了;要换就改启动参数")
+			return 0, errors.New("The run folder is fixed by the --data-dir start option and can't be changed here; change the start option instead")
 		}
 		p, err := cleanDir(s)
 		if err != nil {
@@ -77,7 +77,7 @@ func (a *App) applyPaths(dataDir, modelDir string, move bool) (moved int, err er
 			return 0, err
 		}
 		if err := os.MkdirAll(filepath.Join(p, "logs"), 0o755); err != nil {
-			return 0, fmt.Errorf("建不了日志目录:%v", err)
+			return 0, fmt.Errorf("Couldn't create the log folder: %v", err)
 		}
 		wantData = p
 	}
@@ -90,7 +90,7 @@ func (a *App) applyPaths(dataDir, modelDir string, move bool) (moved int, err er
 		wantModels = p
 	}
 	if samePath(wantModels, filepath.Join(wantData, "models")) {
-		wantModels = "" // 就是默认位置:记成"跟着运行目录走"
+		wantModels = "" // 就是默认位置:记成"Follows the run folder"
 	}
 	newModels := wantModels
 	if newModels == "" {
@@ -131,11 +131,11 @@ func (a *App) applyPaths(dataDir, modelDir string, move bool) (moved int, err er
 	a.mu.Unlock()
 
 	if err := saveLocation(a.pointerDir, wantData, wantModels); err != nil {
-		a.logf("记下存储位置失败:%v", err)
+		a.logf("Couldn't save the storage location: %v", err)
 	}
 	// 设置跟着运行目录走:新目录里也写一份,档位、下载源、端口、开关都还在。
 	if err := saveSettings(a.settingsPath(), s); err != nil {
-		return moved, fmt.Errorf("保存设置失败:%v", err)
+		return moved, fmt.Errorf("Couldn't save settings: %v", err)
 	}
 	if !samePath(curData, wantData) {
 		if a.updates != nil {
@@ -144,30 +144,30 @@ func (a *App) applyPaths(dataDir, modelDir string, move bool) (moved int, err er
 		carryOverFile(filepath.Join(curData, "config.json"), filepath.Join(wantData, "config.json"))
 		a.moveExternalKey(curData)
 		_ = os.Remove(filepath.Join(curData, "instance.json"))
-		a.logf("运行目录改到 %s,启动器日志从这里起写到新目录", wantData)
+		a.logf("Run folder changed to %s; the launcher log continues in the new folder from here", wantData)
 		a.switchLauncherLog(wantData)
 	}
 	a.writeInstance()
-	a.logf("存储位置:运行目录 %s,模型目录 %s(搬了 %d 个文件)", wantData, newModels, moved)
+	a.logf("Storage location: run folder %s, model folder %s (%d files moved)", wantData, newModels, moved)
 	return moved, nil
 }
 
 // runDirFor 决定选中的文件夹能不能直接当运行目录。
 // 运行目录里有 settings.json、config.json 这类通用名字的文件,启动时还会把 config.json 当配置读,
 // 所以不能和用户自己的文件混在一起(会覆盖别人的 settings.json,读到别人的 config.json 就起不来)。
-// 空文件夹、默认位置、以前用过的运行目录直接用;别的就在里面建一个 Humanizer 子文件夹。
+// 空文件夹、默认位置、以前用过的运行目录直接用;别的就在里面建一个 Writeflow 子文件夹。
 func runDirFor(p string) (string, error) {
 	if samePath(p, defaultDataDir()) || isRunDir(p) || isEmptyDir(p) {
 		return p, nil
 	}
-	sub := filepath.Join(p, "Humanizer")
+	sub := filepath.Join(p, "Writeflow")
 	if st, err := os.Stat(sub); err == nil && (!st.IsDir() || !(isRunDir(sub) || isEmptyDir(sub))) {
-		return "", fmt.Errorf("%s 里已经有别的文件,里面的 Humanizer 也不是空的:请选一个空文件夹当运行目录", p)
+		return "", fmt.Errorf("%s already contains other files, and the Writeflow folder inside it isn't empty either: choose an empty folder as the run folder", p)
 	}
 	return cleanDir(sub)
 }
 
-// isRunDir:Humanizer 用过的运行目录(每次启动都会写 logs/launcher.log)。
+// isRunDir:Writeflow 用过的运行目录(每次启动都会写 logs/launcher.log)。
 func isRunDir(p string) bool {
 	return fileExists(filepath.Join(p, "logs", "launcher.log"))
 }
@@ -180,7 +180,7 @@ func isEmptyDir(p string) bool {
 	}
 	for _, e := range ents {
 		switch strings.ToLower(e.Name()) {
-		case ".ds_store", "desktop.ini", "thumbs.db", ".humanizer-write-test":
+		case ".ds_store", "desktop.ini", "thumbs.db", ".writeflow-write-test":
 		default:
 			return false
 		}
@@ -199,7 +199,7 @@ func (a *App) waitDownloadStopped() {
 	select {
 	case <-done:
 	case <-time.After(30 * time.Second):
-		a.logf("下载协程 30 秒还没退出,接着换位置")
+		a.logf("The download task hadn't stopped after 30 seconds; continuing with the location change")
 	}
 }
 
@@ -210,7 +210,7 @@ func (a *App) switchLauncherLog(dataDir string) {
 	}
 	f, err := os.OpenFile(filepath.Join(dataDir, "logs", "launcher.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		a.logf("新运行目录里开不了日志文件:%v", err)
+		a.logf("Couldn't open the log file in the new run folder: %v", err)
 		return
 	}
 	a.logger.SetOutput(io.MultiWriter(f, os.Stderr))
@@ -257,7 +257,7 @@ func (a *App) moveModelFiles(from, to string) (int, error) {
 	for _, j := range jobs {
 		if err := os.MkdirAll(filepath.Dir(j.dst), 0o755); err != nil {
 			undo()
-			return 0, fmt.Errorf("建不了新模型目录:%v", err)
+			return 0, fmt.Errorf("Couldn't create the new model folder: %v", err)
 		}
 		if os.Rename(j.src, j.dst) == nil {
 			renamed = append(renamed, j)
@@ -270,22 +270,22 @@ func (a *App) moveModelFiles(from, to string) (int, error) {
 		}
 		if free, ok := freeDiskBytes(filepath.Dir(j.dst)); ok && free < uint64(st.Size())+256<<20 {
 			undo()
-			return 0, fmt.Errorf("新位置空间不够:%s 要 %.1f GB,只剩 %.1f GB;位置没改", filepath.Base(j.src), float64(st.Size())/gib, float64(free)/gib)
+			return 0, fmt.Errorf("Not enough space at the new location: %s needs %.1f GB, only %.1f GB left; the location was not changed", filepath.Base(j.src), float64(st.Size())/gib, float64(free)/gib)
 		}
-		a.logf("跨盘复制 %s → %s(%.1f GB)", j.src, j.dst, float64(st.Size())/gib)
+		a.logf("Copying across drives %s -> %s (%.1f GB)", j.src, j.dst, float64(st.Size())/gib)
 		if err := cloneFile(j.src, j.dst+".moving"); err != nil {
 			undo()
-			return 0, fmt.Errorf("复制 %s 失败:%v;位置没改", filepath.Base(j.src), err)
+			return 0, fmt.Errorf("Couldn't copy %s: %v; the location was not changed", filepath.Base(j.src), err)
 		}
 		copied = append(copied, j)
 	}
 	for _, j := range copied {
 		if err := os.Rename(j.dst+".moving", j.dst); err != nil {
-			a.logf("复制好的 %s 改名失败:%v", j.dst, err)
+			a.logf("Couldn't rename the copied %s: %v", j.dst, err)
 			continue
 		}
 		if err := os.Remove(j.src); err != nil {
-			a.logf("删掉旧文件 %s 失败(新位置已经有了):%v", j.src, err)
+			a.logf("Couldn't delete the old file %s (the new location already has it): %v", j.src, err)
 		}
 	}
 	return len(jobs), nil
@@ -299,12 +299,12 @@ func (a *App) moveExternalKey(oldDataDir string) {
 	key := a.extKey
 	a.mu.Unlock()
 	if err := a.saveExternalKey(key); err != nil {
-		a.logf("外部服务的 API key 写不到新运行目录:%v(旧目录里那份留着)", err)
+		a.logf("Couldn't write the external service's API key to the new run folder: %v (the one in the old folder is kept)", err)
 		return
 	}
 	if old := filepath.Join(oldDataDir, externalKeyFile); !samePath(old, a.externalKeyPath()) {
 		if err := os.Remove(old); err != nil && !errors.Is(err, os.ErrNotExist) {
-			a.logf("删不掉旧运行目录里的 API key:%v", err)
+			a.logf("Couldn't delete the API key in the old run folder: %v", err)
 		}
 	}
 }
@@ -361,7 +361,7 @@ func (a *App) handlePaths(w http.ResponseWriter, r *http.Request) {
 		Reset    bool   `json:"reset"` // 「恢复默认」:两个目录都回默认
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&req); err != nil {
-		writeJSON(w, 400, map[string]any{"error": "请求格式不对"})
+		writeJSON(w, 400, map[string]any{"error": "Bad request format"})
 		return
 	}
 	dataDir, modelDir := req.DataDir, req.ModelDir
@@ -375,7 +375,7 @@ func (a *App) handlePaths(w http.ResponseWriter, r *http.Request) {
 	}
 	moved, err := a.applyPaths(dataDir, modelDir, req.Move)
 	if err != nil {
-		a.logf("改存储位置失败:%v", err)
+		a.logf("Couldn't change the storage location: %v", err)
 		writeJSON(w, 400, map[string]any{"error": err.Error()})
 		return
 	}
@@ -397,17 +397,17 @@ func (a *App) handlePickDir(w http.ResponseWriter, r *http.Request) {
 		what = "data"
 	case "models":
 	default:
-		writeJSON(w, 400, map[string]any{"error": "不知道要选哪个目录"})
+		writeJSON(w, 400, map[string]any{"error": "Don't know which folder to choose"})
 		return
 	}
 	if what == "data" && a.dataDirLocked {
-		writeJSON(w, 409, map[string]any{"error": "运行目录由启动参数 --data-dir 固定,改不了"})
+		writeJSON(w, 409, map[string]any{"error": "The run folder is fixed by the --data-dir start option and can't be changed"})
 		return
 	}
 	dataDir, modelsDir := a.pathsNow()
-	from, title := modelsDir, "选择模型文件存放的文件夹"
+	from, title := modelsDir, "Choose the folder for model files"
 	if what == "data" {
-		from, title = dataDir, "选择运行目录(设置、日志、引擎更新)"
+		from, title = dataDir, "Choose the run folder (settings, logs, engine updates)"
 	}
 	_ = os.MkdirAll(from, 0o755) // 选择器要一个已经存在的起始目录
 	// 用户关掉网页不该让选择器留在屏幕上,所以不走请求的 context。
@@ -416,10 +416,10 @@ func (a *App) handlePickDir(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	p, err := pickDir(ctx, from, title)
 	if err != nil {
-		a.logf("打开目录选择器失败:%v", err)
-		msg := "打不开文件夹选择器:可以把路径直接粘到输入框里,再点「保存位置」"
+		a.logf("Couldn't open the folder picker: %v", err)
+		msg := "Couldn't open the folder picker: paste the path into the box, then press \"Save location\""
 		if errors.Is(err, context.DeadlineExceeded) {
-			msg = "文件夹选择器两分钟没反应,已经关掉了:可以把路径直接粘到输入框里,再点「保存位置」"
+			msg = "The folder picker didn't respond for two minutes and was closed: paste the path into the box, then press \"Save location\""
 		}
 		writeJSON(w, 500, map[string]any{"error": msg})
 		return

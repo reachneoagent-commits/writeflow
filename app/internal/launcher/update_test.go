@@ -61,7 +61,7 @@ func newTestUpdater(t *testing.T, ghURL, hfURL string) (*updater, *fakeEngine) {
 	cfg.Update.GitHubRepo = "owner/repo"
 	eng := &fakeEngine{}
 	u := &updater{
-		cfg: cfg, dataDir: dir, version: "0.3.1", ua: "humanizer-app/0.3.1", client: newHTTPClient(),
+		cfg: cfg, dataDir: dir, version: "0.3.1", ua: "writeflow-app/0.3.1", client: newHTTPClient(),
 		logf: t.Logf, eng: eng, mjobs: map[string]*modelJob{}, hashing: map[string]*progress{},
 		inst:    installInfo{Kind: "mac_app", Mode: "replace", Suffix: "-macos-arm64.dmg"},
 		rootCtx: context.Background(),
@@ -195,7 +195,7 @@ func TestCheckAppPicksLatestAndOnlySendsUA(t *testing.T) {
 		g.release("app-v0.5.0", false, true, true, nil),         // 预发布:不认
 		g.release("app-v0.4.0-beta.1", false, false, true, nil), // 预发布版本号:不认
 		g.release("model-v9.0.0", false, false, true, nil),      // 别的标签:不认
-		g.release("app-v0.3.2", false, false, true, map[string][]byte{"Humanizer-0.3.2-macos-arm64.dmg": dmg, "SHA256SUMS.txt": []byte("x")}),
+		g.release("app-v0.3.2", false, false, true, map[string][]byte{"Writeflow-0.3.2-macos-arm64.dmg": dmg, "SHA256SUMS.txt": []byte("x")}),
 		g.release("app-v0.3.1", false, false, true, nil),
 	}
 	u, _ := newTestUpdater(t, g.srv.URL, "http://127.0.0.1:1")
@@ -205,7 +205,7 @@ func TestCheckAppPicksLatestAndOnlySendsUA(t *testing.T) {
 	if st.App.Latest == nil || st.App.Latest.Version != "0.3.2" || !st.App.Available {
 		t.Fatalf("应挑出 0.3.2 并标记有新版:%+v", st.App)
 	}
-	if st.App.Latest.Asset != "Humanizer-0.3.2-macos-arm64.dmg" || st.App.Latest.Size != int64(len(dmg)) {
+	if st.App.Latest.Asset != "Writeflow-0.3.2-macos-arm64.dmg" || st.App.Latest.Size != int64(len(dmg)) {
 		t.Fatalf("安装包挑错了:%+v", st.App.Latest)
 	}
 	if u.st.Latest.Assets[0].SHA256 != sha(dmg) || u.st.Latest.SumsURL == "" {
@@ -217,8 +217,8 @@ func TestCheckAppPicksLatestAndOnlySendsUA(t *testing.T) {
 
 	// 隐私:只有 UA,不带任何身份信息
 	h := g.headers[0]
-	if h.Get("User-Agent") != "humanizer-app/0.3.1" {
-		t.Fatalf("UA 应是 humanizer-app/0.3.1,实际 %q", h.Get("User-Agent"))
+	if h.Get("User-Agent") != "writeflow-app/0.3.1" {
+		t.Fatalf("UA 应是 writeflow-app/0.3.1,实际 %q", h.Get("User-Agent"))
 	}
 	for k, vs := range h {
 		for _, v := range vs {
@@ -269,7 +269,7 @@ func TestCheckAppQuietFailures(t *testing.T) {
 }
 
 func TestPickAssetAndSums(t *testing.T) {
-	as := []releaseAsset{{Name: "Humanizer-0.3.2-windows-x64-portable.zip"}, {Name: "Humanizer-0.3.2-windows-x64-setup.exe"}, {Name: "Humanizer-0.3.2-macos-arm64.dmg"}}
+	as := []releaseAsset{{Name: "Writeflow-0.3.2-windows-x64-portable.zip"}, {Name: "Writeflow-0.3.2-windows-x64-setup.exe"}, {Name: "Writeflow-0.3.2-macos-arm64.dmg"}}
 	if a := pickAsset(as, "-windows-x64-setup.exe"); a == nil || a.Name != as[1].Name {
 		t.Fatal("Windows 安装版应挑 setup.exe")
 	}
@@ -280,9 +280,9 @@ func TestPickAssetAndSums(t *testing.T) {
 		t.Fatal("没有的平台应返回 nil")
 	}
 	h := strings.Repeat("ab", 32)
-	sums := "1111111111111111111111111111111111111111111111111111111111111111  Humanizer-0.3.2-macos-arm64.dmg.bak\n" +
-		h + " *Humanizer-0.3.2-macos-arm64.dmg\n"
-	if got := parseSums([]byte(sums), "Humanizer-0.3.2-macos-arm64.dmg"); got != h {
+	sums := "1111111111111111111111111111111111111111111111111111111111111111  Writeflow-0.3.2-macos-arm64.dmg.bak\n" +
+		h + " *Writeflow-0.3.2-macos-arm64.dmg\n"
+	if got := parseSums([]byte(sums), "Writeflow-0.3.2-macos-arm64.dmg"); got != h {
 		t.Fatalf("SHA256SUMS 解析错:%q", got)
 	}
 }
@@ -323,7 +323,7 @@ func TestAppDownloadResumesAndVerifies(t *testing.T) {
 	g := newFakeGitHub(t)
 	dmg := fakeDMG(3<<20, 3)
 	g.dropFirst = 1 << 20 // 第一次下到 1 MiB 断线
-	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Humanizer-0.3.2-macos-arm64.dmg": dmg})}
+	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Writeflow-0.3.2-macos-arm64.dmg": dmg})}
 	u, _ := newTestUpdater(t, g.srv.URL, "")
 	u.check(context.Background(), true)
 	if err := u.startAppDownload(); err != nil {
@@ -337,7 +337,7 @@ func TestAppDownloadResumesAndVerifies(t *testing.T) {
 	if av.State != "ready" {
 		t.Fatalf("应下载成功:%+v %+v", av, av.Error)
 	}
-	got, _ := os.ReadFile(filepath.Join(u.dataDir, "updates", "Humanizer-0.3.2-macos-arm64.dmg"))
+	got, _ := os.ReadFile(filepath.Join(u.dataDir, "updates", "Writeflow-0.3.2-macos-arm64.dmg"))
 	if !bytes.Equal(got, dmg) {
 		t.Fatal("内容不一致")
 	}
@@ -345,7 +345,7 @@ func TestAppDownloadResumesAndVerifies(t *testing.T) {
 		t.Fatalf("断线后应用 Range 续传:%q", g.ranges)
 	}
 	for _, h := range g.headers {
-		if h.Get("User-Agent") != "humanizer-app/0.3.1" {
+		if h.Get("User-Agent") != "writeflow-app/0.3.1" {
 			t.Fatalf("下载请求的 UA 不对:%q", h.Get("User-Agent"))
 		}
 	}
@@ -361,7 +361,7 @@ func TestAppDownloadResumesAndVerifies(t *testing.T) {
 
 func TestNewerReleaseDiscardsStalePackage(t *testing.T) {
 	g := newFakeGitHub(t)
-	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Humanizer-0.3.2-macos-arm64.dmg": fakeDMG(64<<10, 6)})}
+	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Writeflow-0.3.2-macos-arm64.dmg": fakeDMG(64<<10, 6)})}
 	u, _ := newTestUpdater(t, g.srv.URL, "")
 	u.check(context.Background(), true)
 	if err := u.startAppDownload(); err != nil {
@@ -371,8 +371,8 @@ func TestNewerReleaseDiscardsStalePackage(t *testing.T) {
 	if err := u.startAppDownload(); err != nil || appDownloadState(u).State != "ready" {
 		t.Fatal("已经下好的版本再点下载应什么都不做")
 	}
-	old := filepath.Join(u.dataDir, "updates", "Humanizer-0.3.2-macos-arm64.dmg")
-	g.releases = append([]map[string]any{g.release("app-v0.3.3", false, false, true, map[string][]byte{"Humanizer-0.3.3-macos-arm64.dmg": fakeDMG(64<<10, 7)})}, g.releases...)
+	old := filepath.Join(u.dataDir, "updates", "Writeflow-0.3.2-macos-arm64.dmg")
+	g.releases = append([]map[string]any{g.release("app-v0.3.3", false, false, true, map[string][]byte{"Writeflow-0.3.3-macos-arm64.dmg": fakeDMG(64<<10, 7)})}, g.releases...)
 	u.check(context.Background(), true)
 	st := u.status(true, nil)
 	if st.App.Latest.Version != "0.3.3" || st.App.State != "idle" {
@@ -398,7 +398,7 @@ func TestAppDownloadRejectsBadFiles(t *testing.T) {
 		}, "size_mismatch"},
 		{"不是 dmg(被换成网页)", func(g *fakeGitHub, rel map[string]any) {
 			page := bytes.Repeat([]byte("<html>"), len(dmg)/6)
-			g.blobs["Humanizer-0.3.2-macos-arm64.dmg"] = page
+			g.blobs["Writeflow-0.3.2-macos-arm64.dmg"] = page
 			a := rel["assets"].([]map[string]any)[0]
 			a["size"], a["digest"] = len(page), "sha256:"+sha(page)
 		}, "not_package"},
@@ -406,7 +406,7 @@ func TestAppDownloadRejectsBadFiles(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := newFakeGitHub(t)
-			rel := g.release("app-v0.3.2", false, false, true, map[string][]byte{"Humanizer-0.3.2-macos-arm64.dmg": dmg})
+			rel := g.release("app-v0.3.2", false, false, true, map[string][]byte{"Writeflow-0.3.2-macos-arm64.dmg": dmg})
 			c.mutate(g, rel)
 			g.releases = []map[string]any{rel}
 			u, _ := newTestUpdater(t, g.srv.URL, "")
@@ -422,7 +422,7 @@ func TestAppDownloadRejectsBadFiles(t *testing.T) {
 			if av.State != "error" || av.Error == nil || av.Error.Code != c.wantCode {
 				t.Fatalf("应报 %s,实际 %+v %+v", c.wantCode, av, av.Error)
 			}
-			if _, err := os.Stat(filepath.Join(u.dataDir, "updates", "Humanizer-0.3.2-macos-arm64.dmg")); err == nil {
+			if _, err := os.Stat(filepath.Join(u.dataDir, "updates", "Writeflow-0.3.2-macos-arm64.dmg")); err == nil {
 				t.Fatal("坏文件不该留下")
 			}
 		})
@@ -432,9 +432,9 @@ func TestAppDownloadRejectsBadFiles(t *testing.T) {
 func TestAppDownloadUsesSumsWhenNoDigest(t *testing.T) {
 	g := newFakeGitHub(t)
 	dmg := fakeDMG(128<<10, 5)
-	wrong := []byte(strings.Repeat("0", 64) + "  Humanizer-0.3.2-macos-arm64.dmg\n")
+	wrong := []byte(strings.Repeat("0", 64) + "  Writeflow-0.3.2-macos-arm64.dmg\n")
 	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, false,
-		map[string][]byte{"Humanizer-0.3.2-macos-arm64.dmg": dmg, "SHA256SUMS.txt": wrong})}
+		map[string][]byte{"Writeflow-0.3.2-macos-arm64.dmg": dmg, "SHA256SUMS.txt": wrong})}
 	u, _ := newTestUpdater(t, g.srv.URL, "")
 	u.check(context.Background(), true)
 	if err := u.startAppDownload(); err != nil {
@@ -448,7 +448,7 @@ func TestAppDownloadUsesSumsWhenNoDigest(t *testing.T) {
 
 func TestAppDownloadNoPackageForPlatform(t *testing.T) {
 	g := newFakeGitHub(t)
-	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Humanizer-0.3.2-windows-x64-setup.exe": []byte("MZ...")})}
+	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Writeflow-0.3.2-windows-x64-setup.exe": []byte("MZ...")})}
 	u, _ := newTestUpdater(t, g.srv.URL, "")
 	u.check(context.Background(), true)
 	st := u.status(true, nil)
@@ -593,7 +593,7 @@ func TestModelUpdateDownloadsAndRestartsEngine(t *testing.T) {
 		t.Fatalf("确认后应显示已是最新:%+v", m)
 	}
 	for _, h := range *hdrs {
-		if h.Get("User-Agent") != "humanizer-app/0.3.1" {
+		if h.Get("User-Agent") != "writeflow-app/0.3.1" {
 			t.Fatalf("HF 请求的 UA 不对:%q", h.Get("User-Agent"))
 		}
 	}
@@ -786,7 +786,7 @@ func readResult(t *testing.T, dir string) updateResult {
 
 func TestApplySwapSuccess(t *testing.T) {
 	root := t.TempDir()
-	target, staged, backup := filepath.Join(root, "Humanizer.app"), filepath.Join(root, ".Humanizer.app.update"), filepath.Join(root, ".Humanizer.app.backup")
+	target, staged, backup := filepath.Join(root, "Writeflow.app"), filepath.Join(root, ".Writeflow.app.update"), filepath.Join(root, ".Writeflow.app.backup")
 	mkTree(t, target, "0.3.1")
 	mkTree(t, staged, "0.3.2")
 	h, hl := testHooks(t, target, "0.3.2")
@@ -810,7 +810,7 @@ func TestApplySwapSuccess(t *testing.T) {
 
 func TestApplyRollsBackWhenNewVersionDoesNotStart(t *testing.T) {
 	root := t.TempDir()
-	target, staged, backup := filepath.Join(root, "Humanizer.app"), filepath.Join(root, ".Humanizer.app.update"), filepath.Join(root, ".Humanizer.app.backup")
+	target, staged, backup := filepath.Join(root, "Writeflow.app"), filepath.Join(root, ".Writeflow.app.update"), filepath.Join(root, ".Writeflow.app.backup")
 	mkTree(t, target, "0.3.1")
 	mkTree(t, staged, "0.3.2")
 	h, hl := testHooks(t, target, "0.3.1") // 新版本起不来,旧版本可以
@@ -829,14 +829,14 @@ func TestApplyRollsBackWhenNewVersionDoesNotStart(t *testing.T) {
 			t.Fatalf("回滚后不该留下 %s", p)
 		}
 	}
-	if r := readResult(t, root); r.OK || !strings.Contains(r.Error, "已换回") {
+	if r := readResult(t, root); r.OK || !strings.Contains(r.Error, "restored") {
 		t.Fatalf("结果应记失败并说明已换回:%+v", r)
 	}
 }
 
 func TestApplySwapFailsBeforeTouchingOldVersion(t *testing.T) {
 	root := t.TempDir()
-	target := filepath.Join(root, "Humanizer")
+	target := filepath.Join(root, "Writeflow")
 	mkTree(t, target, "0.3.1")
 	h, hl := testHooks(t, target, "0.3.1")
 	res := runApplyPlan(&applyPlan{Kind: "swap", Target: target, Staged: filepath.Join(root, "missing"), Backup: target + ".backup", From: "0.3.1", To: "0.3.2", DataDir: root, Relaunch: []string{"x"}}, h)
@@ -862,7 +862,7 @@ func TestApplyInstallerSuccessAndFailure(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
-			target := filepath.Join(root, "Programs", "Humanizer")
+			target := filepath.Join(root, "Programs", "Writeflow")
 			mkTree(t, target, "0.3.1")
 			script := filepath.Join(root, "setup.sh")
 			os.WriteFile(script, []byte(tc.script), 0o755)
@@ -922,7 +922,7 @@ func TestHelperFakeApp(t *testing.T) {
 	b, _ := json.Marshal(instanceInfo{PID: os.Getpid(), Port: port, Version: v})
 	os.WriteFile(filepath.Join(os.Getenv("HZ_DATA"), "instance.json"), b, 0o644)
 	go http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"app": "humanizer", "version": v})
+		json.NewEncoder(w).Encode(map[string]any{"app": "writeflow", "version": v})
 	}))
 	time.Sleep(20 * time.Second)
 	os.Exit(0)
@@ -949,7 +949,7 @@ func TestExtractZip(t *testing.T) {
 		return p
 	}
 	dst := filepath.Join(t.TempDir(), "out")
-	if err := extractZip(mk(map[string]string{"Humanizer.exe": "MZ", "engine/cpu/llama-server.exe": "MZ", "engine/": ""}), dst); err != nil {
+	if err := extractZip(mk(map[string]string{"Writeflow.exe": "MZ", "engine/cpu/llama-server.exe": "MZ", "engine/": ""}), dst); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dst, "engine", "cpu", "llama-server.exe")); string(b) != "MZ" {
@@ -967,7 +967,7 @@ func TestExtractZip(t *testing.T) {
 }
 
 func TestVersionInPackageName(t *testing.T) {
-	if versionInPackageName("Humanizer-0.3.2-macos-arm64.dmg") != "0.3.2" || versionInPackageName("other.dmg") != "" {
+	if versionInPackageName("Writeflow-0.3.2-macos-arm64.dmg") != "0.3.2" || versionInPackageName("other.dmg") != "" {
 		t.Fatal("从安装包文件名取版本号不对")
 	}
 }
@@ -976,7 +976,7 @@ func TestVersionInPackageName(t *testing.T) {
 
 func TestUpdateRoutes(t *testing.T) {
 	g := newFakeGitHub(t)
-	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Humanizer-0.3.2-macos-arm64.dmg": fakeDMG(4096, 9)})}
+	g.releases = []map[string]any{g.release("app-v0.3.2", false, false, true, map[string][]byte{"Writeflow-0.3.2-macos-arm64.dmg": fakeDMG(4096, 9)})}
 	dir := t.TempDir()
 	cfg := testConfig(t)
 	cfg.Update.GitHubAPI, cfg.Update.GitHubRepo = g.srv.URL, "owner/repo"
@@ -1018,5 +1018,20 @@ func TestUpdateRoutes(t *testing.T) {
 	}
 	if code, _ := do("POST", "/app/update/nope", ""); code != 404 {
 		t.Fatal("未知动作应 404")
+	}
+}
+
+// Writeflow: a releases repo that does not exist yet (HTTP 404) must read as "no releases", not as a failed check.
+func TestCheckAppMissingRepoIsNotAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+	}))
+	defer srv.Close()
+	u, _ := newTestUpdater(t, srv.URL, "http://127.0.0.1:1")
+	if err := u.checkApp(context.Background()); err != nil {
+		t.Fatalf("404 should mean no releases yet, got error: %v", err)
+	}
+	if u.st.Latest != nil {
+		t.Fatalf("no release expected, got %+v", u.st.Latest)
 	}
 }

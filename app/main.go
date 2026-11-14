@@ -1,4 +1,4 @@
-// Humanizer 启动器:下载模型 → 拉起 llama-server → 托管网页并反代 /api/*。
+// Writeflow 启动器:下载模型 → 拉起 llama-server → 托管网页并反代 /api/*。
 //
 // 网页(web/)和默认配置(config/default.json)都编译进二进制,发布时只需要
 // 启动器 + llama.cpp 引擎两样东西。开发时可以用 --web-dir 直接读磁盘上的网页。

@@ -1,0 +1,7 @@
+# Files that are fully ours: when merging sgaofen's updates, keep our version.
+# Needs: git config merge.ours.driver true   (the upstream-check workflow sets it; see docs/UPSTREAM.md)
+README.md merge=ours
+NOTICE merge=ours
+AGENTS.md merge=ours
+llms.txt merge=ours
+app/web/css/wf-theme.css merge=ours
