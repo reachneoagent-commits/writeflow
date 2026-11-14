@@ -133,7 +133,7 @@ func (u *updater) startAppDownload() error {
 		}
 	}
 	if sha == "" {
-		u.logf("Warning: %s has no sha256; checking size only", asset.Name)
+		return &PermanentError{Code: "no_checksum", Msg: "This release has no sha256 for its installer, so it can't be verified. Download it from the Releases page instead"}
 	}
 	_ = os.MkdirAll(u.updatesDir(), 0o755)
 	dest := filepath.Join(u.updatesDir(), asset.Name)
