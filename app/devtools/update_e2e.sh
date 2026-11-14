@@ -32,7 +32,7 @@ import (
 func main() {
 	for _, a := range os.Args[1:] {
 		if a == "--version" {
-			fmt.Println("humanizer 0.9.1")
+			fmt.Println("writeflow 0.9.1")
 			return
 		}
 	}
@@ -93,7 +93,7 @@ post /app/update/check >/dev/null
 wait_until "检查完" 15 '[ "$(upd | field "d[\"checking\"]==False and d[\"app\"][\"available\"]")" = True ]' && ok "发现新版本" || bad "发现新版本"
 check "最新是 0.9.0" '[ "$(upd | field "d[\"app\"][\"latest\"][\"version\"]")" = 0.9.0 ]'
 check "识别为可原地替换的 .app" '[ "$(upd | field "d[\"app\"][\"kind\"]+\"/\"+d[\"app\"][\"mode\"]")" = mac_app/replace ]'
-check "请求 GitHub 时 UA 是 humanizer-app/0.3.1" 'grep -q "UA=\"humanizer-app/0.3.1\"" "$W/fakegh.log"'
+check "请求 GitHub 时 UA 是 writeflow-app/0.3.1" 'grep -q "UA=\"writeflow-app/0.3.1\"" "$W/fakegh.log"'
 check "本地模型和 HF 上不一样 → 模型有新版" '[ "$(model_state)" = available ]'
 
 echo "3. 模型更新:下载期间照常改写,换完重启引擎"
@@ -112,7 +112,7 @@ check "下载期间改写正常(用的是旧模型)" '[ "$(echo "$SSE" | grep -c
 wait_until "模型更新完成" 30 '[ "$(model_state)" = done ]' && ok "模型下载、校验、替换完成" || bad "模型下载、校验、替换完成"
 check "模型文件换成了新的(16 MiB)" '[ "$(stat -f %z "$W/data/models/humanizer-12b-Q8_0.gguf")" = 16777216 ]'
 check "没有留下 .update / .bak" '! ls "$W/data/models" | grep -qE "\.(update|bak|part)"'
-check "引擎重启过一次" '[ "$(grep -c "^===== .* 启动 metal" "$W/data/logs/llama-server.log")" -ge 2 ]'
+check "引擎重启过一次" '[ "$(grep -c "^===== .* start metal" "$W/data/logs/llama-server.log")" -ge 2 ]'
 wait_until "引擎回到就绪" 15 '[ "$(st | field "d[\"phase\"]")" = ready ]' && ok "换完模型引擎就绪" || bad "换完模型引擎就绪"
 post /app/update/model-ack '{"tier":"q8"}' >/dev/null
 check "确认后显示已是最新" '[ "$(model_state)" = current ]'
