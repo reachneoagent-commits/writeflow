@@ -253,7 +253,9 @@ func (d *Download) Run(ctx context.Context) error {
 		d.logf("sha256 check passed %s", got)
 		d.SHA = got
 	} else {
-		d.logf("The remote didn't provide a sha256; skipping the check")
+		_ = os.Remove(part)
+		_ = os.Remove(side)
+		return &PermanentError{Code: "no_checksum", Msg: "No sha256 is available for this file, so it can't be verified; the download was discarded"}
 	}
 	if err := os.Rename(part, d.Dest); err != nil {
 		return err
