@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="brand/logo full color.svg" alt="Writeflow" width="320">
+  <img src="assets/logo.svg" alt="Writeflow" width="320">
 </p>
 
 <p align="center"><b>Rewrite AI-sounding drafts so they read like you. Free, on your own computer.</b></p>

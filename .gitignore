@@ -9,3 +9,6 @@ assets/preview/
 *.egg-info/
 !eval/**/*.jsonl
 .DS_Store
+
+# Brand sources are kept outside the repo
+/brand/
