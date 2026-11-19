@@ -29,7 +29,7 @@ follow your school's or workplace's rules on AI help. The model can still change
 
 ## Download and install
 
-**Easiest:** install and update Writeflow with the [FlowApps launcher](https://github.com/reachneoagent-commits/FlowApps-Launcher/releases/latest), one app that also manages Gramflow, Voxflow, Mailflow and TVflow on Mac and Windows. Or download an installer yourself below.
+**Easiest:** install and update Writeflow with the [FlowApps launcher](https://github.com/reachneoagent-commits/FlowApps-Launcher/releases/latest), one app that also manages the other FlowApps on Mac and Windows. Or download an installer yourself below.
 
 | Platform | Download |
 |---|---|
