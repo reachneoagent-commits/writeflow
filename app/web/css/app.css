@@ -189,9 +189,9 @@ kbd { font-family: var(--f-mono); }
 .pop-foot { margin: 10px 2px 0; font-size: 11.5px; color: var(--ink-3); }
 
 /* ───────── 编辑器 ───────── */
-main { height: calc(100% - 64px); position: relative; }
+main { height: calc(100% - 64px); position: relative; display: flex; flex-direction: column; } /* flex so a banner above the editor shrinks it instead of pushing the footer off-screen */
 .editor {
-  height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr);
+  flex: 1 1 0; min-height: 0; width: 100%; box-sizing: border-box; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr);
   padding: 4px 28px 28px; max-width: 1640px; margin: 0 auto;
 }
 .sheet {
@@ -588,11 +588,18 @@ textarea#draft { position: relative; z-index: 1; }
 .overlay-card h2 { font-family: var(--f-display); font-size: 30px; letter-spacing: -.03em; margin: 0 0 10px; }
 .overlay-card p { color: var(--ink-2); line-height: 1.6; margin: 0; }
 
+/* Short windows (small laptops, browser zoom, banners): let the page scroll so the action buttons are always reachable */
+@media (max-height: 700px) and (min-width: 981px) {
+  body { overflow: auto; }
+  main { height: auto; min-height: calc(100% - 64px); }
+  .editor { flex: none; height: max(560px, calc(100dvh - 140px)); }
+}
+
 /* ───────── 窄屏 ───────── */
 @media (max-width: 980px) {
   body { overflow: auto; }
   main { height: auto; }
-  .editor { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(340px, 46vh) auto minmax(380px, 1fr); padding: 4px 16px 20px; gap: 0; height: auto; }
+  .editor { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(340px, 46vh) auto minmax(380px, 1fr); padding: 4px 16px 20px; gap: 0; height: auto; flex: none; }
   .rail { flex-direction: row; padding: 14px 0; }
   .go { width: 54px; height: 54px; }
   .go .go-arrow { transform: rotate(90deg); }
