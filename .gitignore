@@ -12,3 +12,6 @@ assets/preview/
 
 # Brand sources are kept outside the repo
 /brand/
+
+# Local/generated files (repo audit)
+/app/docs/screenshots-real/
