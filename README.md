@@ -1,9 +1,9 @@
-<table align="center">
-  <tr>
-    <td><img src="assets/app-icon.png" width="128" height="128" alt="Writeflow logo"></td>
-    <td><h1>Writeflow</h1></td>
-  </tr>
-</table>
+<p align="left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/header-dark.png">
+    <img src="assets/header-light.png" width="600" height="160" alt="Writeflow logo and name">
+  </picture>
+</p>
 
 <p align="center"><b>Rewrite AI-sounding drafts so they read like you. Free, on your own computer.</b></p>
 
