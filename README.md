@@ -1,13 +1,22 @@
-<p align="center">
-  <img src="assets/logo.svg" alt="Writeflow" width="320">
-</p>
+<table align="center">
+  <tr>
+    <td><img src="assets/app-icon.png" width="128" height="128" alt="Writeflow logo"></td>
+    <td><h1>Writeflow</h1></td>
+  </tr>
+</table>
 
 <p align="center"><b>Rewrite AI-sounding drafts so they read like you. Free, on your own computer.</b></p>
 
 Writeflow is part of the FlowApps suite. It runs a 12B rewriting model locally, so your text never leaves
 your machine, and it adds a writing coach around it.
 
-## What it does
+## Why Writeflow?
+
+- **Free**, and it works offline after a one-time model download
+- **Private**: rewriting happens on your computer. Cloud models are optional and off by default
+- **A coach, not a verdict**: scores and facts checks show what changed and what to look at
+
+## Features
 
 - **Scan first, then humanize.** Paste text and press Scan to see its AI-sounding score and the exact sentences and phrases behind it. Humanize the whole text, or just a sentence or a selection.
 - **Rewrite** a draft so it sounds like a person wrote it, keeping numbers, names, dates and quotes.
@@ -17,7 +26,6 @@ your machine, and it adds a writing coach around it.
 - **Reading level.** Shows the grade level and whether it fits middle school, high school or college.
 - **Sounds like you.** Paste a few things you wrote yourself and Writeflow shows where a rewrite drifts from your habits.
 - **Cloud model (optional).** Prefer OpenAI, Claude, NVIDIA, Gemini or OpenRouter? Add your own API key from the menu or at setup. Off by default, and text is sent to that provider when it's on.
-- Works offline after a one-time model download. Mac (Apple silicon) and Windows.
 
 Try it with the sample texts in `docs/TEST-SAMPLES.md`.
 
@@ -43,6 +51,15 @@ Open the latest release and pick the file for your computer. The first launch do
 uses and Writeflow will find the model without downloading it again. (On Windows, uninstalling Writeflow removes
 `humanizer-*.gguf` files in a models folder you picked, so keep a separate folder if you also use Humanizer there.)
 
+## Supported platforms
+
+- **Mac:** Apple silicon
+- **Windows:** x64
+
+## Troubleshooting
+
+Install warnings, checking downloads and other step-by-step help are in [docs/INSTALL-WRITEFLOW.md](docs/INSTALL-WRITEFLOW.md). See `docs/UPSTREAM.md` for how updates from the projects we build on are reviewed and merged.
+
 ## Build and test
 
 ```bash
@@ -52,9 +69,16 @@ node devtools/webtest.mjs && node --test web/test/wf.test.mjs
 go run . --web-dir web        # opens http://127.0.0.1:47620
 ```
 
-See `docs/UPSTREAM.md` for how updates from the projects we build on are reviewed and merged.
+## About this fork
 
-## Credits and license
+Writeflow is built on [sgaofen/humanizer-local-model](https://github.com/sgaofen/humanizer-local-model) and the
+[jialinyyzz/humanizer](https://huggingface.co/jialinyyzz/humanizer) model.
 
-Apache 2.0. Built on [sgaofen/humanizer-local-model](https://github.com/sgaofen/humanizer-local-model) and the
-[jialinyyzz/humanizer](https://huggingface.co/jialinyyzz/humanizer) model. Full credits in `NOTICE`.
+### Credits
+
+- **[sgaofen/humanizer-local-model](https://github.com/sgaofen/humanizer-local-model)** by Sgaofen: the project Writeflow is built on.
+- **[jialinyyzz/humanizer](https://huggingface.co/jialinyyzz/humanizer)** model by jialinyyzz. Full credits are in `NOTICE`.
+
+## License
+
+Apache 2.0. See `NOTICE` for full credits.
