@@ -14,6 +14,11 @@ permissions:
   contents: read
   issues: write
 
+# The merge adds a git remote named "upstream", and gh prefers it over origin. Pin gh to this
+# repository so issues and pull requests never go to the upstream project.
+env:
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   report:
     runs-on: ubuntu-latest
