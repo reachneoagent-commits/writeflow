@@ -34,6 +34,11 @@ for one of those paths, keep it deleted: `git rm -r <path>`. Everything is still
 
 ## Merging sgaofen's updates
 
+The **Upstream prepare** workflow (also the **Prepare update** button in the FlowApps launcher's
+Maintainer settings) does the steps below on a `upstream-sync/` branch: it keeps Writeflow's own
+files, keeps removed folders removed, runs a branding check and opens a pull request, where the app
+tests run. It stops without pushing when a conflict needs a person; then do it by hand:
+
 ```bash
 git config merge.ours.driver true
 git remote add upstream https://github.com/sgaofen/humanizer-local-model.git   # once

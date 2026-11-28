@@ -63,10 +63,13 @@ jobs:
           LABEL="upstream-review"
           gh label create "$LABEL" --color E56458 --description "Upstream changes to review" 2>/dev/null || true
           EXISTING=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number')
+          # The launcher's Maintainer settings look for "upstream-update".
+          gh label create upstream-update --color 449837 --description "Upstream has changes to merge" 2>/dev/null || true
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body-file report.md
+            gh issue edit "$EXISTING" --add-label upstream-update
           else
-            gh issue create --title "Upstream changes to review" --label "$LABEL" --body-file report.md
+            gh issue create --title "Upstream changes to review" --label "$LABEL" --label upstream-update --body-file report.md
           fi
       - name: Fail if the report itself broke
         if: steps.report.outputs.code != '0' && steps.report.outputs.code != '10'

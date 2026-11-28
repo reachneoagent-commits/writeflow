@@ -1,0 +1,145 @@
+name: Upstream prepare
+
+# Run by hand (or from the launcher's Maintainer settings) after reading the upstream issue. It
+# merges sgaofen/humanizer-local-model on a new branch, keeps Writeflow's own files (see
+# .gitattributes and docs/UPSTREAM.md), checks the branding, and opens a pull request. App tests run
+# on that pull request. Nothing reaches users until a person merges it (with a merge commit, never a
+# squash) and publishes a release.
+#
+# Pushing upstream's history needs a token that may touch workflow files, which the built-in token
+# may not, so set the UPSTREAM_PUSH_TOKEN secret: a fine-grained token for this repository with
+# Contents, Pull requests and Workflows read/write. A pull request opened with it also starts CI.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: upstream
+  cancel-in-progress: false
+
+# The merge adds a git remote named "upstream", and gh prefers it over origin. Pin gh to this
+# repository so issues and pull requests never go to the upstream project.
+env:
+  GH_REPO: ${{ github.repository }}
+  UPSTREAM_URL: https://github.com/sgaofen/humanizer-local-model.git
+  # Folders Writeflow doesn't ship (docs/UPSTREAM.md, "Folders we removed"). If upstream changes
+  # them, they stay deleted.
+  REMOVED: eval space hf humanizer tests pyproject.toml
+  # Files and folders that are fully Writeflow's (docs/UPSTREAM.md, "What lives where").
+  OURS: README.md NOTICE AGENTS.md llms.txt .gitattributes app/web/css/wf-theme.css app/web/js/wf app/web/test assets scripts/wf_upstream_report.py upstream docs/UPSTREAM.md
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Needs the push token
+        env:
+          HAS_TOKEN: ${{ secrets.UPSTREAM_PUSH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "::error::Set the UPSTREAM_PUSH_TOKEN secret first (see the comment at the top of this workflow)."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_PUSH_TOKEN }}
+      - name: Merge upstream on a new branch
+        id: prep
+        run: |
+          set -euo pipefail
+          git config user.name "flowapps-upstream-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config merge.ours.driver true
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch --quiet upstream main
+          BEHIND=$(git rev-list --count HEAD..upstream/main)
+          if [ "$BEHIND" = "0" ]; then
+            echo "Already up to date with upstream." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          THEIRS=$(git rev-parse --short=12 upstream/main)
+          BRANCH="upstream-sync/$(date -u +%Y-%m-%d)-$THEIRS"
+          git checkout -b "$BRANCH"
+          if ! git merge --no-commit --no-ff upstream/main > merge.log 2>&1; then
+            # Paths Writeflow removed stay removed.
+            for p in $REMOVED; do
+              git diff --name-only --diff-filter=U -- "$p" | xargs -r git rm -q --
+            done
+            LEFT=$(git diff --name-only --diff-filter=U)
+            if [ -n "$LEFT" ]; then
+              {
+                echo "## Upstream prepare stopped: conflicts need a person"
+                echo
+                echo "$LEFT" | sed 's/^/- /'
+                echo
+                echo "Nothing was pushed. Follow docs/UPSTREAM.md, \"Merging sgaofen's updates\"."
+              } | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          fi
+          # Writeflow's own files keep Writeflow's version even where only upstream changed them
+          # (the merge=ours driver in .gitattributes only steps in when both sides did).
+          for p in $OURS; do
+            if git cat-file -e "HEAD:$p" 2>/dev/null; then git checkout HEAD -- "$p"; fi
+          done
+          git commit -q -m "Merge sgaofen/humanizer-local-model main ($THEIRS) into Writeflow"
+          {
+            echo "Merges \`sgaofen/humanizer-local-model\` main into Writeflow: $BEHIND new commit(s), up to \`$THEIRS\`."
+            echo
+            echo "Changes: https://github.com/sgaofen/humanizer-local-model/compare/$(git merge-base HEAD^1 upstream/main | cut -c1-12)...$THEIRS"
+            echo
+            echo "<details><summary>Upstream commits</summary>"
+            echo
+            git log --no-merges --format='- %h %s' HEAD^1..upstream/main | head -200
+            echo
+            echo "</details>"
+            echo
+            echo "Writeflow's own files were kept (.gitattributes) and the branding check passed. App tests run on this pull request."
+            echo "After merging, mark it reviewed: \`python3 scripts/wf_upstream_report.py --approve sgaofen-app\`."
+          } > pr.md
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "title=Merge upstream humanizer ($BEHIND new commits)" >> "$GITHUB_OUTPUT"
+      - name: Branding check
+        if: steps.prep.outputs.branch != ''
+        run: |
+          set -euo pipefail
+          FAIL=0
+          # Writeflow's own files must come through the merge unchanged.
+          for p in $OURS; do
+            if [ -e "$p" ] && ! git diff --quiet HEAD^1 HEAD -- "$p"; then
+              echo "::error::$p changed in the merge; it belongs to Writeflow."; FAIL=1
+            fi
+          done
+          # The window title, our stylesheet and our scripts stay wired in.
+          grep -q 'Writeflow' app/web/index.html || { echo "::error::app/web/index.html lost the Writeflow name."; FAIL=1; }
+          grep -q 'wf-theme.css' app/web/index.html || { echo "::error::app/web/index.html no longer loads wf-theme.css."; FAIL=1; }
+          for js in workspace cloud header about; do
+            grep -q "js/wf/$js.js" app/web/index.html || { echo "::error::app/web/index.html no longer loads js/wf/$js.js."; FAIL=1; }
+          done
+          # Removed folders stay removed.
+          for p in $REMOVED; do
+            if [ -e "$p" ] && ! git cat-file -e "HEAD^1:$p" 2>/dev/null; then
+              echo "::error::$p came back with the merge; Writeflow doesn't ship it."; FAIL=1
+            fi
+          done
+          exit $FAIL
+      - name: Push and open the pull request
+        if: steps.prep.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_PUSH_TOKEN }}
+          BRANCH: ${{ steps.prep.outputs.branch }}
+          TITLE: ${{ steps.prep.outputs.title }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          git push origin "$BRANCH"
+          URL="$(gh pr create --base "$BASE" --head "$BRANCH" --title "$TITLE" --body-file pr.md)"
+          echo "Pull request: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+          ISSUE="$(gh issue list --label upstream-update --state open --json number --jq '.[0].number')"
+          if [ -n "$ISSUE" ]; then gh issue comment "$ISSUE" --body "Prepared for review: $URL"; fi
