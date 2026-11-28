@@ -3,17 +3,21 @@ name: Upstream prepare
 # Run by hand (or from the launcher's Maintainer settings) after reading the upstream issue. It
 # merges sgaofen/humanizer-local-model on a new branch, keeps Writeflow's own files (see
 # .gitattributes and docs/UPSTREAM.md), checks the branding, and opens a pull request. App tests run
-# on that pull request. Nothing reaches users until a person merges it (with a merge commit, never a
+# on that branch. Nothing reaches users until a person merges it (with a merge commit, never a
 # squash) and publishes a release.
 #
-# Pushing upstream's history needs a token that may touch workflow files, which the built-in token
-# may not, so set the UPSTREAM_PUSH_TOKEN secret: a fine-grained token for this repository with
-# Contents, Pull requests and Workflows read/write. A pull request opened with it also starts CI.
+# It uses GitHub's built-in token unless the optional UPSTREAM_PUSH_TOKEN secret is set (a
+# fine-grained token with Contents, Pull requests and Workflows read/write). The built-in token
+# can't push changes to .github/workflows, so if upstream changed a workflow the run stops and
+# asks for a hand merge. Opening the pull request also needs Settings > Actions > General >
+# "Allow GitHub Actions to create and approve pull requests"; without it the run posts a link to
+# open the pull request by hand.
 
 on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   issues: write
@@ -38,20 +42,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Needs the push token
-        env:
-          HAS_TOKEN: ${{ secrets.UPSTREAM_PUSH_TOKEN != '' }}
-        run: |
-          if [ "$HAS_TOKEN" != "true" ]; then
-            echo "::error::Set the UPSTREAM_PUSH_TOKEN secret first (see the comment at the top of this workflow)."
-            exit 1
-          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          token: ${{ secrets.UPSTREAM_PUSH_TOKEN }}
+          token: ${{ secrets.UPSTREAM_PUSH_TOKEN || github.token }}
       - name: Merge upstream on a new branch
         id: prep
+        env:
+          HAS_TOKEN: ${{ secrets.UPSTREAM_PUSH_TOKEN != '' }}
         run: |
           set -euo pipefail
           git config user.name "flowapps-upstream-bot"
@@ -90,6 +88,17 @@ jobs:
             if git cat-file -e "HEAD:$p" 2>/dev/null; then git checkout HEAD -- "$p"; fi
           done
           git commit -q -m "Merge sgaofen/humanizer-local-model main ($THEIRS) into Writeflow"
+          # The built-in token may not push workflow files.
+          if [ "$HAS_TOKEN" != "true" ] && ! git diff --quiet HEAD^1 HEAD -- .github/workflows; then
+            {
+              echo "## Upstream prepare stopped: upstream changed workflow files"
+              echo
+              git diff --name-only HEAD^1 HEAD -- .github/workflows | sed 's/^/- /'
+              echo
+              echo "GitHub's built-in token can't push these. Merge by hand (docs/UPSTREAM.md) or set UPSTREAM_PUSH_TOKEN."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           {
             echo "Merges \`sgaofen/humanizer-local-model\` main into Writeflow: $BEHIND new commit(s), up to \`$THEIRS\`."
             echo
@@ -101,7 +110,7 @@ jobs:
             echo
             echo "</details>"
             echo
-            echo "Writeflow's own files were kept (.gitattributes) and the branding check passed. App tests run on this pull request."
+            echo "Writeflow's own files were kept (.gitattributes) and the branding check passed. App tests were started on this branch (Actions > app-test)."
             echo "After merging, mark it reviewed: \`python3 scripts/wf_upstream_report.py --approve sgaofen-app\`."
           } > pr.md
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
@@ -133,13 +142,18 @@ jobs:
       - name: Push and open the pull request
         if: steps.prep.outputs.branch != ''
         env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_PUSH_TOKEN }}
+          GH_TOKEN: ${{ secrets.UPSTREAM_PUSH_TOKEN || github.token }}
           BRANCH: ${{ steps.prep.outputs.branch }}
           TITLE: ${{ steps.prep.outputs.title }}
           BASE: ${{ github.event.repository.default_branch }}
         run: |
           git push origin "$BRANCH"
-          URL="$(gh pr create --base "$BASE" --head "$BRANCH" --title "$TITLE" --body-file pr.md)"
+          # app-test has no pull_request trigger, so start it on the new branch.
+          gh workflow run app-test.yml --ref "$BRANCH" || echo "::warning::Could not start app-test; run it by hand on $BRANCH."
+          if ! URL="$(gh pr create --base "$BASE" --head "$BRANCH" --title "$TITLE" --body-file pr.md)"; then
+            URL="https://github.com/$GH_REPO/compare/$BASE...$BRANCH?expand=1"
+            echo "::warning::Actions may not open pull requests here. Open it by hand: $URL"
+          fi
           echo "Pull request: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
           ISSUE="$(gh issue list --label upstream-update --state open --json number --jq '.[0].number')"
           if [ -n "$ISSUE" ]; then gh issue comment "$ISSUE" --body "Prepared for review: $URL"; fi
